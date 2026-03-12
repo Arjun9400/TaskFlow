@@ -9,12 +9,31 @@
 // Firebase is loaded as module and exposed globally
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import{getDatabase,ref,set,onValue,off}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-const firebaseConfig={apiKey:"AIzaSyB2-TRh6Ue0S9yer3qbkRRAJ6hIqidPrDw",authDomain:"syncer-80725.firebaseapp.com",databaseURL:"https://syncer-80725-default-rtdb.europe-west1.firebasedatabase.app",projectId:"syncer-80725",storageBucket:"syncer-80725.firebasestorage.app",messagingSenderId:"988279501929",appId:"1:988279501929:web:896718d50dfe28dba01ef8"};
+import{getAuth,signInWithPopup,signOut,onAuthStateChanged,GoogleAuthProvider}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+const firebaseConfig={apiKey:"AIzaSyB2-TRh6Ue0S9yer3qbkRRAJ6hIqidPrDw",authDomain:"syncer-80725.firebaseapp.com",databaseURL:"https://syncer-80725-default-rtdb.europe-west1.firebasedatabase.app",projectId:"syncer-80725",storageBucket:"syncer-80725.firebasestorage.app",messagingSenderId:"988279501929",appId:"1:988279501899:web:896718d50dfe28dba01ef8"};
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
+const auth=getAuth(app);
+const provider=new GoogleAuthProvider();
 window._fbDb=db;window._fbRef=ref;window._fbSet=set;window._fbOnValue=onValue;window._fbOff=off;
-window._fbReady=true;
-window.dispatchEvent(new Event('fb-ready'));
+window._fbAuth=auth;window._fbSignIn=()=>signInWithPopup(auth,provider);window._fbSignOut=()=>signOut(auth);
+// Wait for auth state before signalling firebase ready
+onAuthStateChanged(auth,user=>{
+  window._fbUser=user;
+  window._fbReady=true;
+  window.dispatchEvent(new Event('fb-ready'));
+  if(user){
+    const el=document.getElementById('auth-user-label');
+    if(el)el.textContent=user.displayName||user.email||'Signed in';
+    document.getElementById('auth-signin-btn')?.style.setProperty('display','none');
+    document.getElementById('auth-signout-btn')?.style.setProperty('display','');
+  }else{
+    document.getElementById('auth-signin-btn')?.style.setProperty('display','');
+    document.getElementById('auth-signout-btn')?.style.setProperty('display','none');
+    const el=document.getElementById('auth-user-label');
+    if(el)el.textContent='';
+  }
+});
 </script>
 <style>
 :root{
@@ -1064,6 +1083,9 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   <div class="sb-section">Upcoming</div>
   <div class="sb-scroll" id="sb-list"></div>
   <div class="sb-bottom">
+    <div id="auth-user-label" style="font-size:10px;color:var(--stext2);font-family:'DM Mono',monospace;padding:4px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button class="sb-util-btn" id="auth-signin-btn" onclick="window._fbSignIn&&window._fbSignIn()">🔑 Sign in with Google</button>
+    <button class="sb-util-btn" id="auth-signout-btn" style="display:none" onclick="window._fbSignOut&&window._fbSignOut()">🚪 Sign out</button>
     <button class="sb-util-btn" onclick="exportJSON()">📤 Export sync.json</button>
     <label class="sb-util-btn" style="cursor:pointer"><input type="file" accept=".json" onchange="importJSON(event)" style="display:none"/>📥 Import sync.json</label>
     <button class="sb-util-btn" onclick="forgetPassphrase()" id="forget-pw-btn" style="display:none">🔑 Change passphrase</button>
@@ -1393,7 +1415,7 @@ const SK='taskflow_v9';
 const SESSION_GAP=30*60*1000;
 
 // ══ FIREBASE + AES-256 SYNC ══
-const FB_PATH='taskflow/data';
+function getFbPath(){const uid=window._fbUser?.uid;return uid?`taskflow/users/${uid}/data`:'taskflow/data';}
 let _cryptoKey=null; // CryptoKey object for AES-256-GCM
 let _fbListener=null;
 let _skipFirebase=false;
@@ -1439,13 +1461,13 @@ async function decryptData(b64){
 }
 
 async function fbWrite(state){
-  if(_skipFirebase||!_cryptoKey||!window._fbReady)return;
+  if(_skipFirebase||!_cryptoKey||!window._fbReady||!window._fbUser)return;
   try{
     setSyncStatus('syncing','Saving…');
     const enc=await encryptData(state);
     _lastRemoteHash=enc; // track so listener ignores our own write
     const db=window._fbDb,r=window._fbRef,s=window._fbSet;
-    await s(r(db,FB_PATH),{d:enc,t:Date.now()});
+    await s(r(db,getFbPath()),{d:enc,t:Date.now()});
     setSyncStatus('ok','Synced ✓');
   }catch(e){
     console.error('Firebase write error',e);
@@ -1465,9 +1487,9 @@ function scheduleSave(){
 }
 
 function startFbListener(){
-  if(_skipFirebase||!_cryptoKey||!window._fbReady)return;
+  if(_skipFirebase||!_cryptoKey||!window._fbReady||!window._fbUser)return;
   const db=window._fbDb,r=window._fbRef,ov=window._fbOnValue;
-  const dbRef=r(db,FB_PATH);
+  const dbRef=r(db,getFbPath());
   _fbListener=ov(dbRef,async snap=>{
     const val=snap.val();
     if(!val||!val.d)return;
@@ -1510,8 +1532,9 @@ async function cryptoSubmit(){
     document.getElementById('crypto-ov').style.display='none';
     document.getElementById('forget-pw-btn').style.display='';
     setSyncStatus('syncing','Connecting…');
-    window.addEventListener('fb-ready',()=>startFbListener(),{once:true});
-    if(window._fbReady)startFbListener();
+    const tryConnect=()=>{if(window._fbReady&&window._fbUser)startFbListener();};
+    window.addEventListener('fb-ready',tryConnect,{once:true});
+    if(window._fbReady&&window._fbUser)startFbListener();
   }catch(e){
     err.textContent='Error: '+e.message;
   }
@@ -1532,8 +1555,9 @@ async function initCrypto(){
       document.getElementById('crypto-ov').style.display='none';
       document.getElementById('forget-pw-btn').style.display='';
       setSyncStatus('syncing','Connecting…');
-      window.addEventListener('fb-ready',()=>startFbListener(),{once:true});
-      if(window._fbReady)startFbListener();
+      const tryConnect=()=>{if(window._fbReady&&window._fbUser)startFbListener();};
+      window.addEventListener('fb-ready',tryConnect,{once:true});
+      if(window._fbReady&&window._fbUser)startFbListener();
       return;
     }catch(e){/* fall through to modal */}
   }
