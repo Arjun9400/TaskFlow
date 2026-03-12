@@ -1419,6 +1419,7 @@ const DNS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const SK='taskflow_v9';
 // Session gap: 30 minutes in ms
 const SESSION_GAP=30*60*1000;
+const DEVICE_ID=(()=>{let id=localStorage.getItem('_taskflow_did');if(!id){id=Math.random().toString(36).slice(2);localStorage.setItem('_taskflow_did',id)}return id})();
 
 // ══ FIREBASE + AES-256 SYNC ══
 function getFbPath(){const uid=window._fbUser?.uid;return uid?`taskflow/users/${uid}/data`:'taskflow/data';}
@@ -1512,6 +1513,31 @@ function startFbListener(){
         categories:defaultState().categories,labels:defaultState().labels,...remote};
       localStorage.setItem(SK,JSON.stringify(S));
       EX.clear();TM={};
+      // Reattach local display intervals for tasks running on another device
+      S.tasks.forEach(t=>{
+        if(t.timerRunning){
+          const st=Date.now()-(t.elapsed||0);
+          TM[t.id]=setInterval(()=>{
+            t.elapsed=Date.now()-st;
+            const el=document.getElementById(`tmr-${t.id}`);if(el)el.textContent=fmtT(t.elapsed);
+            const detEl=document.getElementById(`det-tmr-${t.id}`);if(detEl)detEl.textContent=fmtT(t.elapsed);
+            const qtEl=document.getElementById(`qtmr-${t.id}`);
+            if(qtEl)qtEl.textContent='⏸ '+fmtT(t.elapsed);
+          },500);
+        }
+        (t.subtasks||[]).forEach(s=>{
+          if(s.timerRunning){
+            const k=`${t.id}:${s.id}`;
+            const st=Date.now()-(s.elapsed||0);
+            TM[k]=setInterval(()=>{
+              s.elapsed=Date.now()-st;
+              const el=document.getElementById(`stmr-${s.id}`);if(el)el.textContent=fmtT(s.elapsed);
+              const detEl=document.getElementById(`det-stmr-${s.id}`);if(detEl)detEl.textContent=fmtT(s.elapsed);
+            },500);
+          }
+        });
+      });
+      updateGlobalTimerBanner();
       // Re-render current page
       try{showPage(curPage);}catch(e){}
       try{rSidebar();}catch(e){}
@@ -1631,6 +1657,8 @@ function loadS(){
   if(!s.labels)s.labels=def.labels;
   if(!s.dailyTimeLogs)s.dailyTimeLogs={};
   normState(s);
+  // On local load, always reset running state - can't resume another device's timer
+  (s.tasks||[]).forEach(t=>{t.timerRunning=false;(t.subtasks||[]).forEach(s=>s.timerRunning=false)});
   return s;
 }
 
@@ -1661,13 +1689,13 @@ function normState(d){
   });
   // Normalize tasks
   (d.tasks||[]).forEach(t=>{
-    t.timerRunning=false;
     if(!t.subtasks)t.subtasks=[];
     if(!t.elapsed)t.elapsed=0;
     if(!t.sessions)t.sessions=[];
     if(t.weight===undefined)t.weight=1;
+    // Only reset timerRunning on initial local load (not remote sync)
+    // Remote timerRunning is preserved so other-device locks work
     t.subtasks.forEach(s=>{
-      s.timerRunning=false;
       if(!s.elapsed)s.elapsed=0;
       if(!s.sessions)s.sessions=[];
       if(s.weight===undefined)s.weight=1;
@@ -2657,6 +2685,8 @@ function reRender(){
 function togMainTmr(id,e){
   e&&e.stopPropagation();
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  // Block if running on another device (timerRunning=true but no local interval)
+  if(t.timerRunning&&!TM[id]){toast('Timer is running on another device');return}
   // Stop any other running timers first
   if(!t.timerRunning){
     S.tasks.forEach(ot=>{
@@ -2688,6 +2718,8 @@ function togSubTmr(tid,sid,e){
   const t=S.tasks.find(x=>x.id===tid);if(!t)return;
   const s=t.subtasks.find(x=>x.id===sid);if(!s)return;
   const k=`${tid}:${sid}`;
+  // Block if running on another device (timerRunning=true but no local interval)
+  if(s.timerRunning&&!TM[k]){toast('Timer is running on another device');return}
   // Stop other timers
   if(!s.timerRunning){
     S.tasks.forEach(ot=>{
