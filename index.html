@@ -31,9 +31,6 @@ onAuthStateChanged(auth,user=>{
     if(el)el.textContent=user.displayName||user.email||'Signed in';
     document.getElementById('auth-signin-btn')?.style.setProperty('display','none');
     document.getElementById('auth-signout-btn')?.style.setProperty('display','');
-    // Mobile auth links
-    document.getElementById('today-signin-btn')?.style.setProperty('display','none');
-    document.getElementById('today-changepw-btn')?.style.setProperty('display','');
     // Fire event so initCrypto can start the listener
     window.dispatchEvent(new Event('fb-ready'));
   }else{
@@ -41,9 +38,6 @@ onAuthStateChanged(auth,user=>{
     document.getElementById('auth-signout-btn')?.style.setProperty('display','none');
     const el=document.getElementById('auth-user-label');
     if(el)el.textContent='';
-    // Mobile auth links
-    document.getElementById('today-signin-btn')?.style.setProperty('display','');
-    document.getElementById('today-changepw-btn')?.style.setProperty('display','none');
   }
 });
 </script>
@@ -983,9 +977,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   /* ── TODAY SECTION TITLE ── */
   .today-section-title { font-size: 10px; margin-top: 14px; margin-bottom: 8px; }
 
-  /* ── TODAY MOBILE AUTH LINKS ── */
-  #today-mobile-auth { display: flex !important; }
-
   /* ── SUBTASKS ── */
   .sub-row { padding: 5px 8px 5px 10px; }
   .sub-name { font-size: 12px; }
@@ -1123,10 +1114,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
       <div id="today-progress"></div>
       <div id="finish-day-bar"></div>
       <div id="today-content"></div>
-      <div id="today-mobile-auth" style="display:none;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);flex-direction:column;gap:6px;align-items:flex-start">
-        <button id="today-signin-btn" onclick="handleGoogleSignIn()" style="background:none;border:none;padding:0;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px">🔑 sign in with google</button>
-        <button id="today-changepw-btn" onclick="forgetPassphrase()" style="display:none;background:none;border:none;padding:0;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px">🔑 change passphrase</button>
-      </div>
     </div>
   </div>
 
@@ -1552,7 +1539,6 @@ async function cryptoSubmit(){
     localStorage.setItem('taskflow_passphrase',pw);
     document.getElementById('crypto-ov').style.display='none';
     document.getElementById('forget-pw-btn').style.display='';
-    document.getElementById('today-changepw-btn')?.style.setProperty('display','');
     setSyncStatus('syncing','Connecting…');
     window.addEventListener('fb-ready',()=>startFbListener());
     if(window._fbReady&&window._fbUser)startFbListener();
@@ -1594,7 +1580,6 @@ async function initCrypto(){
       _cryptoKey=await deriveKey(saved,'taskflow-salt-v1');
       document.getElementById('crypto-ov').style.display='none';
       document.getElementById('forget-pw-btn').style.display='';
-      document.getElementById('today-changepw-btn')?.style.setProperty('display','');
       setSyncStatus('syncing','Connecting…');
       window.addEventListener('fb-ready',()=>startFbListener());
       if(window._fbReady&&window._fbUser)startFbListener();
@@ -1608,7 +1593,6 @@ async function initCrypto(){
 function forgetPassphrase(){
   localStorage.removeItem('taskflow_passphrase');
   document.getElementById('forget-pw-btn').style.display='none';
-  document.getElementById('today-changepw-btn')?.style.setProperty('display','none');
   document.getElementById('crypto-pw').value='';
   document.getElementById('crypto-pw2').value='';
   document.getElementById('crypto-err').textContent='';
@@ -2171,16 +2155,23 @@ function updateGlobalTimerBanner(){
     return;
   }
   banner.classList.add('visible');app.classList.add('timer-open');
-  const target=runningSub||runningTask;
   document.getElementById('gbt-taskname').textContent=runningTask.name;
   document.getElementById('gbt-subinfo').textContent=runningSub?`↳ ${runningSub.name}`:'';
   if(!gbtInterval){
     gbtInterval=setInterval(()=>{
-      const ms=target.elapsed||0;
-      document.getElementById('gbt-time').textContent=fmtT(ms);
+      // Re-find the running task/sub each tick to avoid stale closure
+      let curTask=null,curSub=null;
+      for(const t of S.tasks){
+        if(t.timerRunning){curTask=t;break}
+        const rs=t.subtasks?.find(s=>s.timerRunning);
+        if(rs){curTask=t;curSub=rs;break}
+      }
+      if(!curTask){clearInterval(gbtInterval);gbtInterval=null;return}
+      const curTarget=curSub||curTask;
+      document.getElementById('gbt-time').textContent=fmtT(curTarget.elapsed||0);
     },500);
   }
-  document.getElementById('gbt-time').textContent=fmtT(target.elapsed||0);
+  document.getElementById('gbt-time').textContent=fmtT((runningSub||runningTask).elapsed||0);
 }
 
 function pauseActiveTimer(){
@@ -2678,6 +2669,7 @@ function togMainTmr(id,e){
     addSession(t,t.elapsed);
   }else{
     t.timerRunning=true;
+    startSession(t);
     const st=Date.now()-(t.elapsed||0);
     TM[id]=setInterval(()=>{
       t.elapsed=Date.now()-st;
@@ -2686,10 +2678,9 @@ function togMainTmr(id,e){
       // Update inline quick timer button
       const qtEl=document.getElementById(`qtmr-${id}`);
       if(qtEl){qtEl.textContent='\u23F8 '+fmtT(t.elapsed)}
-      updateGlobalTimerBanner();
     },500);
   }
-  saveS();reRender();updateGlobalTimerBanner();
+  saveS();updateGlobalTimerBanner();reRender();
 }
 
 function togSubTmr(tid,sid,e){
@@ -2709,15 +2700,15 @@ function togSubTmr(tid,sid,e){
     addSession(s,s.elapsed);
   }else{
     s.timerRunning=true;
+    startSession(s);
     const st=Date.now()-(s.elapsed||0);
     TM[k]=setInterval(()=>{
       s.elapsed=Date.now()-st;
       const el=document.getElementById(`stmr-${sid}`);if(el)el.textContent=fmtT(s.elapsed);
       const detEl=document.getElementById(`det-stmr-${sid}`);if(detEl)detEl.textContent=fmtT(s.elapsed);
-      updateGlobalTimerBanner();
     },500);
   }
-  saveS();reRender();updateGlobalTimerBanner();
+  saveS();updateGlobalTimerBanner();reRender();
 }
 
 function addSession(target,totalElapsed){
