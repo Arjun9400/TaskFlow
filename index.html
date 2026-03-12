@@ -31,16 +31,19 @@ onAuthStateChanged(auth,user=>{
     if(el)el.textContent=user.displayName||user.email||'Signed in';
     document.getElementById('auth-signin-btn')?.style.setProperty('display','none');
     document.getElementById('auth-signout-btn')?.style.setProperty('display','');
+    // Mobile auth links
+    document.getElementById('today-signin-btn')?.style.setProperty('display','none');
+    document.getElementById('today-changepw-btn')?.style.setProperty('display','');
     // Fire event so initCrypto can start the listener
     window.dispatchEvent(new Event('fb-ready'));
-    // Update account page if open
-    if(typeof rAccount==='function')rAccount();
   }else{
     document.getElementById('auth-signin-btn')?.style.setProperty('display','');
     document.getElementById('auth-signout-btn')?.style.setProperty('display','none');
     const el=document.getElementById('auth-user-label');
     if(el)el.textContent='';
-    if(typeof rAccount==='function')rAccount();
+    // Mobile auth links
+    document.getElementById('today-signin-btn')?.style.setProperty('display','');
+    document.getElementById('today-changepw-btn')?.style.setProperty('display','none');
   }
 });
 </script>
@@ -980,6 +983,9 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   /* ── TODAY SECTION TITLE ── */
   .today-section-title { font-size: 10px; margin-top: 14px; margin-bottom: 8px; }
 
+  /* ── TODAY MOBILE AUTH LINKS ── */
+  #today-mobile-auth { display: flex !important; }
+
   /* ── SUBTASKS ── */
   .sub-row { padding: 5px 8px 5px 10px; }
   .sub-name { font-size: 12px; }
@@ -1088,7 +1094,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   <button class="sb-nav-btn" id="nav-deadlines" onclick="showPage('deadlines')"><span class="sb-nav-icon">🗓</span><span class="sb-nav-label">Deadlines</span></button>
   <button class="sb-nav-btn" id="nav-history" onclick="showPage('history')"><span class="sb-nav-icon">⊙</span><span class="sb-nav-label">History</span></button>
   <button class="sb-nav-btn" id="nav-categories" onclick="showPage('categories')"><span class="sb-nav-icon">◆</span><span class="sb-nav-label">Categories</span></button>
-  <button class="sb-nav-btn" id="nav-account" onclick="showPage('account')"><span class="sb-nav-icon">👤</span><span class="sb-nav-label">Account</span></button>
   <hr class="sb-divider"/>
   <div class="sb-section">Upcoming</div>
   <div class="sb-scroll" id="sb-list"></div>
@@ -1118,6 +1123,10 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
       <div id="today-progress"></div>
       <div id="finish-day-bar"></div>
       <div id="today-content"></div>
+      <div id="today-mobile-auth" style="display:none;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);flex-direction:column;gap:6px;align-items:flex-start">
+        <button id="today-signin-btn" onclick="handleGoogleSignIn()" style="background:none;border:none;padding:0;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px">🔑 sign in with google</button>
+        <button id="today-changepw-btn" onclick="forgetPassphrase()" style="display:none;background:none;border:none;padding:0;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px">🔑 change passphrase</button>
+      </div>
     </div>
   </div>
 
@@ -1249,45 +1258,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   </div>
 
 </div><!-- /main -->
-
-  <!-- ACCOUNT PAGE (mobile-accessible) -->
-  <div class="page" id="page-account" style="display:none">
-    <div class="page-scroll">
-      <div class="pg-title">Account & Sync</div>
-      <div class="pg-subtitle" style="margin-bottom:20px">Manage your Google sign-in and sync passphrase</div>
-
-      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)">
-        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px">Google Account</div>
-        <div id="acct-user-info" style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div style="width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👤</div>
-          <div>
-            <div id="acct-user-name" style="font-size:14px;font-weight:500;color:var(--ink)">Not signed in</div>
-            <div id="acct-user-email" style="font-size:12px;color:var(--text3)">Sign in to sync across devices</div>
-          </div>
-        </div>
-        <button class="btn btn-rust btn-full" id="acct-signin-btn" onclick="handleGoogleSignIn()">🔑 Sign in with Google</button>
-        <button class="btn btn-outline btn-full" id="acct-signout-btn" style="display:none" onclick="window._fbSignOut&&window._fbSignOut()">🚪 Sign out</button>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)">
-        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px">Sync Passphrase</div>
-        <div id="acct-sync-status-row" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-          <div id="acct-sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0"></div>
-          <span id="acct-sync-lbl" style="font-size:13px;color:var(--text2)">Not connected</span>
-        </div>
-        <button class="btn btn-outline btn-full" id="acct-change-pw-btn" onclick="forgetPassphrase();showPage('today')" style="display:none">🔑 Change passphrase</button>
-        <div id="acct-no-passphrase" style="font-size:12px;color:var(--text3)">No passphrase set — open the app on desktop to configure sync.</div>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)">
-        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px">Data</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-outline btn-full" onclick="exportJSON()">📤 Export sync.json</button>
-          <label class="btn btn-outline btn-full" style="cursor:pointer;justify-content:center"><input type="file" accept=".json" onchange="importJSON(event)" style="display:none"/>📥 Import sync.json</label>
-        </div>
-      </div>
-    </div>
-  </div>
 </div><!-- /body -->
 </div><!-- /app -->
 
@@ -1582,6 +1552,7 @@ async function cryptoSubmit(){
     localStorage.setItem('taskflow_passphrase',pw);
     document.getElementById('crypto-ov').style.display='none';
     document.getElementById('forget-pw-btn').style.display='';
+    document.getElementById('today-changepw-btn')?.style.setProperty('display','');
     setSyncStatus('syncing','Connecting…');
     window.addEventListener('fb-ready',()=>startFbListener());
     if(window._fbReady&&window._fbUser)startFbListener();
@@ -1623,6 +1594,7 @@ async function initCrypto(){
       _cryptoKey=await deriveKey(saved,'taskflow-salt-v1');
       document.getElementById('crypto-ov').style.display='none';
       document.getElementById('forget-pw-btn').style.display='';
+      document.getElementById('today-changepw-btn')?.style.setProperty('display','');
       setSyncStatus('syncing','Connecting…');
       window.addEventListener('fb-ready',()=>startFbListener());
       if(window._fbReady&&window._fbUser)startFbListener();
@@ -1636,6 +1608,7 @@ async function initCrypto(){
 function forgetPassphrase(){
   localStorage.removeItem('taskflow_passphrase');
   document.getElementById('forget-pw-btn').style.display='none';
+  document.getElementById('today-changepw-btn')?.style.setProperty('display','none');
   document.getElementById('crypto-pw').value='';
   document.getElementById('crypto-pw2').value='';
   document.getElementById('crypto-err').textContent='';
@@ -1800,7 +1773,6 @@ function showPage(p){
   else if(p==='calendar')rCal();
   else if(p==='today')rToday();
   else if(p==='deadlines')rDeadlines();
-  else if(p==='account')rAccount();
   rSidebar();badges();
 }
 
@@ -3065,30 +3037,6 @@ function clearHist(){
 }
 
 // ══ CATEGORIES & LABELS ══
-function rAccount(){
-  const user=window._fbUser;
-  const hasPw=!!localStorage.getItem('taskflow_passphrase');
-  // User info
-  document.getElementById('acct-user-name').textContent=user?(user.displayName||user.email||'Signed in'):'Not signed in';
-  document.getElementById('acct-user-email').textContent=user?(user.email||'Google account'):'Sign in to sync across devices';
-  document.getElementById('acct-signin-btn').style.display=user?'none':'';
-  document.getElementById('acct-signout-btn').style.display=user?'':'none';
-  // Sync status mirror
-  const syncEl=document.getElementById('sync-status');
-  const dot=document.getElementById('acct-sync-dot');
-  const lbl=document.getElementById('acct-sync-lbl');
-  if(syncEl){
-    const cls=syncEl.className;
-    if(cls.includes('ok')){dot.style.background='#3d8a5c';lbl.textContent='Synced ✓';lbl.style.color='#3d8a5c';}
-    else if(cls.includes('err')){dot.style.background='#c0533a';lbl.textContent=document.getElementById('sync-lbl')?.textContent||'Error';lbl.style.color='#c0533a';}
-    else if(cls.includes('syncing')){dot.style.background='#c47a2b';lbl.textContent='Syncing…';lbl.style.color='#c47a2b';}
-    else{dot.style.background='var(--border)';lbl.textContent='Not connected';lbl.style.color='var(--text3)';}
-  }
-  document.getElementById('acct-change-pw-btn').style.display=hasPw?'':'none';
-  document.getElementById('acct-no-passphrase').style.display=hasPw?'none':'';
-}
-
-
 function rCategories(){
   // Categories
   document.getElementById('cat-grid').innerHTML=S.categories.map((cat,i)=>`
