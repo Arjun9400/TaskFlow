@@ -9,14 +9,19 @@
 // Firebase is loaded as module and exposed globally
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import{getDatabase,ref,set,onValue,off}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-import{getAuth,signInWithPopup,signOut,onAuthStateChanged,GoogleAuthProvider}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import{getAuth,signInWithPopup,signInWithRedirect,getRedirectResult,signOut,onAuthStateChanged,GoogleAuthProvider}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 const firebaseConfig={apiKey:"AIzaSyB2-TRh6Ue0S9yer3qbkRRAJ6hIqidPrDw",authDomain:"syncer-80725.firebaseapp.com",databaseURL:"https://syncer-80725-default-rtdb.europe-west1.firebasedatabase.app",projectId:"syncer-80725",storageBucket:"syncer-80725.firebasestorage.app",messagingSenderId:"988279501929",appId:"1:988279501899:web:896718d50dfe28dba01ef8"};
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
 const auth=getAuth(app);
 const provider=new GoogleAuthProvider();
 window._fbDb=db;window._fbRef=ref;window._fbSet=set;window._fbOnValue=onValue;window._fbOff=off;
-window._fbAuth=auth;window._fbSignIn=()=>signInWithPopup(auth,provider);window._fbSignOut=()=>signOut(auth);
+window._fbAuth=auth;
+window._fbSignIn=()=>signInWithPopup(auth,provider);
+window._fbSignInRedirect=()=>signInWithRedirect(auth,provider);
+window._fbSignOut=()=>signOut(auth);
+// Handle redirect result (for browsers that blocked popup)
+getRedirectResult(auth).catch(()=>{});
 // Wait for auth state before signalling firebase ready
 onAuthStateChanged(auth,user=>{
   window._fbUser=user;
@@ -1084,7 +1089,7 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;
   <div class="sb-scroll" id="sb-list"></div>
   <div class="sb-bottom">
     <div id="auth-user-label" style="font-size:10px;color:var(--stext2);font-family:'DM Mono',monospace;padding:4px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-    <button class="sb-util-btn" id="auth-signin-btn" onclick="window._fbSignIn&&window._fbSignIn()">🔑 Sign in with Google</button>
+    <button class="sb-util-btn" id="auth-signin-btn" onclick="handleGoogleSignIn()">🔑 Sign in with Google</button>
     <button class="sb-util-btn" id="auth-signout-btn" style="display:none" onclick="window._fbSignOut&&window._fbSignOut()">🚪 Sign out</button>
     <button class="sb-util-btn" onclick="exportJSON()">📤 Export sync.json</button>
     <label class="sb-util-btn" style="cursor:pointer"><input type="file" accept=".json" onchange="importJSON(event)" style="display:none"/>📥 Import sync.json</label>
@@ -1546,7 +1551,26 @@ function cryptoSkip(){
   setSyncStatus('err','Local only');
 }
 
-// Auto-connect if passphrase already stored, otherwise show modal
+function handleGoogleSignIn(){
+  if(!window._fbSignIn){toast('Auth not ready yet, please wait…');return;}
+  window._fbSignIn().then(result=>{
+    // success handled by onAuthStateChanged
+  }).catch(err=>{
+    if(err.code==='auth/popup-blocked'||err.code==='auth/popup-closed-by-user'){
+      // Fallback to redirect
+      if(window._fbSignInRedirect){
+        window._fbSignInRedirect();
+      } else {
+        toast('Popup blocked — please allow popups for this page');
+      }
+    } else {
+      toast('Sign-in error: '+err.message);
+      console.error(err);
+    }
+  });
+}
+
+
 async function initCrypto(){
   const saved=localStorage.getItem('taskflow_passphrase');
   if(saved){
