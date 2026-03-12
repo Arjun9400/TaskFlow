@@ -26,12 +26,13 @@ getRedirectResult(auth).catch(()=>{});
 onAuthStateChanged(auth,user=>{
   window._fbUser=user;
   window._fbReady=true;
-  window.dispatchEvent(new Event('fb-ready'));
   if(user){
     const el=document.getElementById('auth-user-label');
     if(el)el.textContent=user.displayName||user.email||'Signed in';
     document.getElementById('auth-signin-btn')?.style.setProperty('display','none');
     document.getElementById('auth-signout-btn')?.style.setProperty('display','');
+    // Fire event so initCrypto can start the listener
+    window.dispatchEvent(new Event('fb-ready'));
   }else{
     document.getElementById('auth-signin-btn')?.style.setProperty('display','');
     document.getElementById('auth-signout-btn')?.style.setProperty('display','none');
@@ -1493,6 +1494,8 @@ function scheduleSave(){
 
 function startFbListener(){
   if(_skipFirebase||!_cryptoKey||!window._fbReady||!window._fbUser)return;
+  // Don't attach duplicate listeners
+  if(_fbListener){return;}
   const db=window._fbDb,r=window._fbRef,ov=window._fbOnValue;
   const dbRef=r(db,getFbPath());
   _fbListener=ov(dbRef,async snap=>{
@@ -1537,8 +1540,7 @@ async function cryptoSubmit(){
     document.getElementById('crypto-ov').style.display='none';
     document.getElementById('forget-pw-btn').style.display='';
     setSyncStatus('syncing','Connecting…');
-    const tryConnect=()=>{if(window._fbReady&&window._fbUser)startFbListener();};
-    window.addEventListener('fb-ready',tryConnect,{once:true});
+    window.addEventListener('fb-ready',()=>startFbListener());
     if(window._fbReady&&window._fbUser)startFbListener();
   }catch(e){
     err.textContent='Error: '+e.message;
@@ -1579,8 +1581,7 @@ async function initCrypto(){
       document.getElementById('crypto-ov').style.display='none';
       document.getElementById('forget-pw-btn').style.display='';
       setSyncStatus('syncing','Connecting…');
-      const tryConnect=()=>{if(window._fbReady&&window._fbUser)startFbListener();};
-      window.addEventListener('fb-ready',tryConnect,{once:true});
+      window.addEventListener('fb-ready',()=>startFbListener());
       if(window._fbReady&&window._fbUser)startFbListener();
       return;
     }catch(e){/* fall through to modal */}
