@@ -21,7 +21,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:15px;-webkit-text-size-adjust:100%}
-body{font-family:var(--font-body);background:var(--paper);color:var(--ink);overflow:hidden;height:100vh;display:flex;flex-direction:column}
+body{font-family:var(--font-body);background:var(--paper);color:var(--ink);overflow:hidden;height:100vh;height:100dvh;display:flex;flex-direction:column}
 input,select,textarea,button{font-family:inherit;font-size:inherit}
 button{cursor:pointer;border:none;background:none}
 ::-webkit-scrollbar{width:6px;height:6px}
@@ -361,18 +361,31 @@ button{cursor:pointer;border:none;background:none}
 @media(max-width:768px){
   #sidebar{display:none}
   #mobileNav{display:flex!important}
-  #main{padding:16px 14px 120px}
-  #detailPanel{width:100%;border-radius:16px 16px 0 0;border-left:none;bottom:0;top:auto;max-height:92vh;transform:translateY(100%)}
+  /* Topbar: shrink + hide desktop cal controls */
+  #topBar{height:auto;min-height:48px;padding:0 10px;gap:6px;flex-wrap:nowrap}
+  #topBar #calNav,#topBar #viewToggle{display:none!important}
+  .logo{font-size:1.1rem}
+  .btn-add-task{padding:6px 10px;font-size:.72rem;white-space:nowrap}
+  /* Push/pull icon-only on narrow screens */
+  .mob-sync-btn{height:30px;padding:0 8px;font-size:.72rem}
+  .topbar-cloud{width:30px;height:30px;font-size:.9rem}
+  /* Main content */
+  #main{padding:14px 12px 130px}
+  /* Detail panel slides up from bottom */
+  #detailPanel{width:100%;border-radius:16px 16px 0 0;border-left:none;bottom:0;top:auto;max-height:92svh;transform:translateY(100%)}
   #detailPanel.show{transform:translateY(0)}
-  .modal{border-radius:16px 16px 0 0;max-height:92vh;align-self:flex-end}
+  /* Modals slide up from bottom */
+  .modal-overlay{align-items:flex-end;padding:0}
+  .modal{border-radius:16px 16px 0 0;max-height:92svh;width:100%;max-width:100%}
   .cat-label-grid{grid-template-columns:1fr}
-  #topBar .period-label{min-width:auto;font-size:.85rem}
-  .page-header h1{font-size:1.4rem}
-  #toast{bottom:70px}
-  .stats-row{gap:8px}
-  .stat-card{padding:10px 12px;min-width:90px}
-  .stat-card .stat-value{font-size:1.2rem}
+  .page-header h1{font-size:1.3rem}
+  #toast{bottom:74px}
+  .stats-row{gap:6px}
+  .stat-card{padding:8px 10px;min-width:80px}
+  .stat-card .stat-value{font-size:1.1rem}
   .modal-row{grid-template-columns:1fr}
+  /* Banners go full width on mobile */
+  #oosyncBanner,#lockBanner{left:0}
 }
 #mobileNav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--sbg);z-index:300;border-top:1px solid rgba(255,255,255,.08)}
 #mobileNav button{flex:1;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--stext2);font-size:.6rem;font-family:var(--font-mono);transition:all .15s;position:relative}
@@ -643,11 +656,42 @@ function fbSignIn(){
   const prov=new firebase.auth.GoogleAuthProvider();
   fbAuth.signInWithPopup(prov).catch(e=>toast('Sign-in error: '+e.message));
 }
-function fbSignOut(){fbAuth.signOut()}
+function fbSignOut(){
+  _stopHeartbeat();
+  // Release lock if we own it before signing out
+  if(fbUser){
+    try{
+      fbRef('lock').once('value').then(s=>{
+        const lk=s.val();
+        if(lk&&lk.deviceId===DEVICE_ID)fbRef('lock').remove();
+      });
+    }catch(e){}
+  }
+  fbAuth.signOut();
+}
 
 fbAuth.onAuthStateChanged(user=>{
   fbUser=user;updateSyncUI();
   if(user)setTimeout(checkRemoteMeta,800);
+  if(!user){_stopHeartbeat()}
+});
+
+// Release lock on page unload (best-effort on mobile)
+async function _releaseLockIfOwner(){
+  if(!fbUser)return;
+  try{
+    const snap=await fbRef('lock').once('value');
+    const lk=snap.val();
+    if(lk&&lk.deviceId===DEVICE_ID)await fbRef('lock').remove();
+  }catch(e){}
+}
+window.addEventListener('pagehide',e=>{
+  if(!e.persisted){_stopHeartbeat();_releaseLockIfOwner();}
+});
+window.addEventListener('beforeunload',()=>{
+  _stopHeartbeat();
+  // Synchronous best-effort (async won't complete but worth a try)
+  if(fbUser){try{firebase.database().ref('taskflow/users/'+fbUser.uid+'/lock').remove();}catch(e){}}
 });
 
 // ===== FIREBASE REFS =====
@@ -655,11 +699,40 @@ const fbRef=path=>fbDb.ref(`taskflow/users/${fbUser.uid}/${path}`);
 
 // ===== DEVICE LOCK =====
 async function readLock(){const s=await fbRef('lock').once('value');return s.val()}
+let _heartbeatTimer=null;
 async function acquireLock(){
   const lref=fbRef('lock');
-  await lref.set({deviceId:DEVICE_ID,deviceName:DEVICE_NAME,lockedAt:new Date().toISOString()});
-  // Auto-release lock when this tab closes / disconnects
+  const lockData={deviceId:DEVICE_ID,deviceName:DEVICE_NAME,lockedAt:new Date().toISOString(),lastSeen:Date.now()};
+  await lref.set(lockData);
+  // Fast-path release when Firebase detects disconnect
   await lref.onDisconnect().remove();
+  // Heartbeat: keep lastSeen fresh so other devices know we're alive
+  _startHeartbeat();
+}
+function _startHeartbeat(){
+  if(_heartbeatTimer)clearInterval(_heartbeatTimer);
+  _heartbeatTimer=setInterval(async()=>{
+    if(!fbUser)return;
+    try{
+      const snap=await fbRef('lock').once('value');
+      const lk=snap.val();
+      if(lk&&lk.deviceId===DEVICE_ID){
+        await fbRef('lock').update({lastSeen:Date.now()});
+      }else{
+        // Lost the lock, stop heartbeat
+        clearInterval(_heartbeatTimer);_heartbeatTimer=null;
+      }
+    }catch(e){}
+  },25000);
+}
+function _stopHeartbeat(){
+  if(_heartbeatTimer){clearInterval(_heartbeatTimer);_heartbeatTimer=null;}
+}
+function _isLockExpired(lock){
+  if(!lock)return true;
+  // If lastSeen is missing (old format) or stale > 75s, consider expired
+  const ls=lock.lastSeen||0;
+  return ls>0&&(Date.now()-ls)>75000;
 }
 async function forceTakeOver(){
   if(!fbUser){toast('Not signed in');return}
@@ -678,7 +751,7 @@ async function checkRemoteMeta(){
     const meta=s.val();
     // Check lock — enforce with blocking overlay
     const lock=await readLock();
-    if(lock&&lock.deviceId!==DEVICE_ID){
+    if(lock&&lock.deviceId!==DEVICE_ID&&!_isLockExpired(lock)){
       showDeviceLockOverlay(lock);
     }else{
       hideDeviceLockOverlay();
