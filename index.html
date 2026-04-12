@@ -470,6 +470,18 @@ button{cursor:pointer;border:none;background:none}
 
 /* WEEK BLOCK OVERLAP FIXED */
 .week-block{min-width:0}
+
+/* DEVICE LOCK OVERLAY */
+#deviceLockOverlay{position:fixed;inset:0;z-index:9000;background:rgba(20,16,14,.92);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:0}
+#deviceLockOverlay.show{display:flex}
+.dlo-box{background:var(--paper);border-radius:20px;padding:36px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.4)}
+.dlo-icon{font-size:2.8rem;margin-bottom:12px}
+.dlo-title{font-family:var(--font-heading);font-size:1.5rem;font-weight:700;margin-bottom:8px}
+.dlo-sub{font-size:.88rem;color:var(--text2);line-height:1.6;margin-bottom:6px}
+.dlo-device{display:inline-block;margin:10px 0 20px;font-family:var(--font-mono);font-size:.8rem;padding:5px 16px;border-radius:20px;background:var(--rust-pale);color:var(--rust);border:1px solid var(--rust)}
+.dlo-takeover{width:100%;padding:12px;border-radius:10px;background:var(--rust);color:#fff;font-family:var(--font-mono);font-size:.85rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;margin-bottom:8px}
+.dlo-takeover:hover{background:var(--rust-dark)}
+.dlo-note{font-size:.72rem;color:var(--text3);line-height:1.5}
 </style>
 </head>
 <body>
@@ -538,6 +550,17 @@ button{cursor:pointer;border:none;background:none}
 <div id="oosyncBanner">⚠️ <strong>Out of sync</strong> — cloud has newer data. <button class="banner-btn" onclick="manualPull()" style="margin-left:8px">↓ Pull Now</button><button class="banner-close" onclick="dismissOosync()">×</button></div>
 <div id="lockBanner">🔒 <strong>Device locked</strong> — <span id="lockInfo">another device is active</span>. <button class="banner-btn" onclick="forceTakeOver()" style="margin-left:8px">Take Over</button><button class="banner-close" onclick="dismissLock()">×</button></div>
 <div class="modal-overlay" id="pwdOverlay"><div class="modal"><h2>🔐 Encryption Password</h2><div class="pwd-note">This password encrypts your data <strong>before</strong> it leaves your device. It is never transmitted — only your encrypted data is stored in the cloud.</div><div class="modal-field"><label>Password</label><input type="password" id="pwdInput" placeholder="Strong passphrase…" onkeydown="if(event.key==='Enter')$('#pwdConfirm').focus()"></div><div class="modal-field"><label>Confirm Password</label><input type="password" id="pwdConfirm" placeholder="Same password again…" onkeydown="if(event.key==='Enter')confirmPwd()"></div><div id="pwdError" style="color:#c53030;font-size:.8rem;margin-bottom:8px;display:none;padding:6px 10px;background:#fde8e8;border-radius:6px"></div><div class="modal-footer"><button class="btn-cancel" onclick="cancelPwdModal()">Cancel</button><button class="btn-save" onclick="confirmPwd()">Set Password & Continue</button></div><div class="pwd-actions-extra"><button class="pwd-change-link" onclick="clearPwd()">Forget saved password</button></div></div></div>
+<div id="deviceLockOverlay">
+  <div class="dlo-box">
+    <div class="dlo-icon">🔒</div>
+    <div class="dlo-title">Session Locked</div>
+    <div class="dlo-sub">TaskFlow is active on another device:</div>
+    <div class="dlo-device" id="dloDeviceName">another device</div>
+    <div class="dlo-sub">Close that session or take over to use TaskFlow here.</div>
+    <button class="dlo-takeover" onclick="lockOverlayTakeOver()">Take Over on This Device</button>
+    <div class="dlo-note">Taking over will lock the other device until it pulls from cloud.</div>
+  </div>
+</div>
 <script>
 "use strict";
 
@@ -626,8 +649,9 @@ async function acquireLock(){await fbRef('lock').set({deviceId:DEVICE_ID,deviceN
 async function forceTakeOver(){
   if(!fbUser){toast('Not signed in');return}
   await acquireLock();
-  $('#lockRow').style.display='none';
+  hideDeviceLockOverlay();
   hideLockBanner();
+  const lr=$('#lockRow');if(lr)lr.style.display='none';
   toast('Lock acquired — '+DEVICE_NAME+' is now active');
 }
 
@@ -637,18 +661,16 @@ async function checkRemoteMeta(){
   try{
     const s=await fbRef('meta').once('value');
     const meta=s.val();
-    if(!meta)return;
-    // Check lock
+    // Check lock — enforce with blocking overlay
     const lock=await readLock();
     if(lock&&lock.deviceId!==DEVICE_ID){
-      showLockBanner(lock);
-      const lr=$('#lockRow'),lrt=$('#lockRowText');
-      if(lr){lr.style.display='flex'}
-      if(lrt){const d=new Date(lock.lockedAt);lrt.textContent=lock.deviceName+' ('+d.toLocaleTimeString()+')'}
+      showDeviceLockOverlay(lock);
     }else{
+      hideDeviceLockOverlay();
       hideLockBanner();
-      if($('#lockRow'))$('#lockRow').style.display='none';
+      const lr=$('#lockRow');if(lr)lr.style.display='none';
     }
+    if(!meta)return;
     // Check timestamps
     const remoteTs=meta.dataTimestamp||0;
     if(remoteTs>localSyncTs&&!oosyncDismissed){
@@ -658,6 +680,29 @@ async function checkRemoteMeta(){
       setSyncStatus('✓ In sync','green');
     }
   }catch(e){console.warn('meta check failed',e)}
+}
+
+function showDeviceLockOverlay(lock){
+  const el=$('#deviceLockOverlay');
+  const dn=$('#dloDeviceName');
+  if(!el)return;
+  if(dn&&lock){const d=new Date(lock.lockedAt);dn.textContent=lock.deviceName+' (locked '+d.toLocaleTimeString()+')'}
+  el.classList.add('show');
+  // Also show in sidebar/banner
+  showLockBanner(lock);
+  const lr=$('#lockRow'),lrt=$('#lockRowText');
+  if(lr)lr.style.display='flex';
+  if(lrt&&lock){const d=new Date(lock.lockedAt);lrt.textContent=lock.deviceName+' ('+d.toLocaleTimeString()+')'}
+}
+function hideDeviceLockOverlay(){
+  const el=$('#deviceLockOverlay');if(el)el.classList.remove('show');
+}
+async function lockOverlayTakeOver(){
+  await acquireLock();
+  hideDeviceLockOverlay();
+  hideLockBanner();
+  const lr=$('#lockRow');if(lr)lr.style.display='none';
+  toast('This device is now active 🔓');
 }
 
 // ===== MANUAL PUSH =====
@@ -1191,7 +1236,7 @@ let toastTm=null;function toast(msg){let el=$('#toast');el.textContent=msg;el.cl
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#confirmOverlay').classList.contains('show'))closeConfirm();else if($('#modalOverlay').classList.contains('show'))closeModal();else if($('#detailPanel').classList.contains('show'))closeDetail()}if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();openNewTask()}});
 
 // ===== INIT =====
-function init(){load();checkOverdueRecurring();save();buildNavBtns();renderAll();setInterval(()=>{checkOverdueRecurring();save()},3e5);setInterval(()=>{if(currentPage==='calendar')renderCalendar()},6e4)}
+function init(){load();checkOverdueRecurring();save();buildNavBtns();renderAll();setInterval(()=>{checkOverdueRecurring();save()},3e5);setInterval(()=>{if(currentPage==='calendar')renderCalendar()},6e4);setInterval(()=>{if(fbUser)checkRemoteMeta()},30000)}
 init();
 </script>
 </body>
