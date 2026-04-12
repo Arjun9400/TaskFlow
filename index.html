@@ -672,7 +672,7 @@ function fbSignOut(){
 
 fbAuth.onAuthStateChanged(user=>{
   fbUser=user;updateSyncUI();
-  if(user)setTimeout(checkRemoteMeta,800);
+  if(user)setTimeout(()=>checkRemoteMeta(true),1200);
   if(!user){_stopHeartbeat()}
 });
 
@@ -744,7 +744,7 @@ async function forceTakeOver(){
 }
 
 // ===== REMOTE META CHECK (out-of-sync detection) =====
-async function checkRemoteMeta(){
+async function checkRemoteMeta(autoSync=false){
   if(!fbUser)return;
   try{
     const s=await fbRef('meta').once('value');
@@ -761,10 +761,17 @@ async function checkRemoteMeta(){
     if(!meta)return;
     // Check timestamps
     const remoteTs=meta.dataTimestamp||0;
-    if(remoteTs>localSyncTs&&!oosyncDismissed){
-      showOosyncBanner();
-      setSyncStatus('⚠ Cloud newer','orange');
-    }else if(remoteTs>0&&remoteTs<=localSyncTs){
+    const cloudIsNewer=remoteTs>localSyncTs;
+    if(cloudIsNewer){
+      if(autoSync&&getEncPwd()){
+        // Silent auto-pull on load — password already cached, just do it
+        await manualPull();
+      }else{
+        // No cached password or not an auto-sync trigger — just warn
+        showOosyncBanner();
+        setSyncStatus('⚠ Cloud newer','orange');
+      }
+    }else if(remoteTs>0){
       setSyncStatus('✓ In sync','green');
     }
   }catch(e){console.warn('meta check failed',e)}
