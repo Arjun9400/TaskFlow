@@ -482,6 +482,16 @@ button{cursor:pointer;border:none;background:none}
 .dlo-takeover{width:100%;padding:12px;border-radius:10px;background:var(--rust);color:#fff;font-family:var(--font-mono);font-size:.85rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;margin-bottom:8px}
 .dlo-takeover:hover{background:var(--rust-dark)}
 .dlo-note{font-size:.72rem;color:var(--text3);line-height:1.5}
+
+/* MOBILE PUSH/PULL TOPBAR BUTTONS */
+.mob-sync-btn{height:34px;border-radius:8px;border:1px solid var(--border);background:var(--cream);font-family:var(--font-mono);font-size:.75rem;font-weight:600;padding:0 11px;transition:all .15s;cursor:pointer;flex-shrink:0;display:none}
+.mob-sync-btn:disabled{opacity:.4;cursor:not-allowed}
+#mPushBtn{color:var(--green);border-color:var(--green-border);background:var(--green-bg)}
+#mPushBtn:hover:not(:disabled){background:#d0edda}
+#mPullBtn{color:#4a6fa5;border-color:#c3d3e8;background:#e8eef5}
+#mPullBtn:hover:not(:disabled){background:#d5e4f5}
+@media(max-width:768px){.mob-sync-btn.signed-in{display:flex;align-items:center;gap:4px}}
+@media(min-width:769px){.mob-sync-btn{display:none!important}}
 </style>
 </head>
 <body>
@@ -491,7 +501,7 @@ button{cursor:pointer;border:none;background:none}
   <div class="cal-nav" id="calNav" style="display:none"><button onclick="calPrev()">←</button><span class="period-label" id="periodLabel"></span><button onclick="calNext()">→</button><button onclick="calToday()" style="font-size:.72rem;font-family:var(--font-mono);width:auto;padding:0 10px">Today</button></div>
   <div class="view-toggle" id="viewToggle" style="display:none"><button onclick="setCalView('month')" id="vMonth">Month</button><button onclick="setCalView('week')" id="vWeek">Week</button><button onclick="setCalView('day')" id="vDay">Day</button></div>
   <div class="topbar-spacer"></div>
-  <button class="topbar-cloud" onclick="openSyncSheet()" title="Cloud Sync" id="topCloudBtn"><span>☁</span><span class="tc-dot hidden" id="topCloudDot"></span></button><button class="btn-add-task" onclick="openNewTask()">+ Add Task</button>
+  <button class="mob-sync-btn" id="mPushBtn" onclick="manualPush()" title="Push to cloud">↑ Push</button><button class="mob-sync-btn" id="mPullBtn" onclick="manualPull()" title="Pull from cloud">↓ Pull</button><button class="topbar-cloud" onclick="openSyncSheet()" title="Sign in / Sync status" id="topCloudBtn"><span>☁</span><span class="tc-dot hidden" id="topCloudDot"></span></button><button class="btn-add-task" onclick="openNewTask()">+ Add Task</button>
 </div>
 <div id="mobileCalBar">
   <div class="mcb-nav">
@@ -645,7 +655,12 @@ const fbRef=path=>fbDb.ref(`taskflow/users/${fbUser.uid}/${path}`);
 
 // ===== DEVICE LOCK =====
 async function readLock(){const s=await fbRef('lock').once('value');return s.val()}
-async function acquireLock(){await fbRef('lock').set({deviceId:DEVICE_ID,deviceName:DEVICE_NAME,lockedAt:new Date().toISOString()})}
+async function acquireLock(){
+  const lref=fbRef('lock');
+  await lref.set({deviceId:DEVICE_ID,deviceName:DEVICE_NAME,lockedAt:new Date().toISOString()});
+  // Auto-release lock when this tab closes / disconnects
+  await lref.onDisconnect().remove();
+}
 async function forceTakeOver(){
   if(!fbUser){toast('Not signed in');return}
   await acquireLock();
@@ -702,7 +717,8 @@ async function lockOverlayTakeOver(){
   hideDeviceLockOverlay();
   hideLockBanner();
   const lr=$('#lockRow');if(lr)lr.style.display='none';
-  toast('This device is now active 🔓');
+  toast('Took over — pulling latest data…');
+  await manualPull();
 }
 
 // ===== MANUAL PUSH =====
@@ -797,6 +813,8 @@ function updateSyncUI(){
   const on=!!fbUser;
   if(si)si.style.display=on?'':'none';
   if(sb)sb.style.display=on?'none':'';
+  // Mobile push/pull buttons — visible only when signed in (CSS handles desktop hide)
+  ['mPushBtn','mPullBtn'].forEach(id=>{const b=$('#'+id);if(b)b.classList.toggle('signed-in',on)});
   if(!on){setSyncStatus('Local only','grey');setCloudDot('hidden')}
   else{const nm=(fbUser.displayName||fbUser.email||'').split(' ')[0];setSyncStatus(nm+' ✓','green');setCloudDot('green')}
 }
@@ -812,24 +830,9 @@ function openSyncSheet(){
     const nm=fbUser.displayName||fbUser.email||'';
     const initials=nm.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
     h+=`<div class="ss-user"><div class="ss-avatar">${initials}</div><div class="ss-name">${esc(nm)}</div><button class="ss-signout-link" onclick="fbSignOut();$('#syncSheet').classList.remove('show')">Sign out</button></div>`;
-    // Show lock warning if applicable
-    const lb=$('#lockBanner');
-    if(lb&&lb.style.display!=='none'){
-      const li=$('#lockInfo');
-      h+=`<div class="ss-lock-warn">🔒 ${li?li.textContent:'Another device is active'} <button class="banner-btn" style="padding:2px 8px;font-size:.72rem;margin-left:auto" onclick="forceTakeOver();$('#syncSheet').classList.remove('show')">Take Over</button></div>`;
-    }
-    // Show oos warning
-    const ob=$('#oosyncBanner');
-    if(ob&&ob.style.display!=='none'){
-      h+=`<div class="ss-oos-warn">⚠️ Cloud has newer data — pull to update</div>`;
-    }
-    h+=`<div class="ss-btn-row">`;
-    h+=`<button class="ss-btn ss-push" id="ssPush" onclick="manualPush();$('#syncSheet').classList.remove('show')">↑ Push to Cloud</button>`;
-    h+=`<button class="ss-btn ss-pull" id="ssPull" onclick="manualPull();$('#syncSheet').classList.remove('show')">↓ Pull from Cloud</button>`;
-    h+=`</div>`;
     const st=$('#syncText');
-    const stText=st?st.textContent:'';
-    h+=`<div class="ss-status-line" id="ssStatusLine">${esc(stText)}</div>`;
+    h+=`<div class="ss-status-line" id="ssStatusLine">${esc(st?st.textContent:'')}</div>`;
+    h+=`<div class="ss-note" style="font-size:.75rem;color:var(--text3);margin-top:8px;text-align:center">Use ↑ Push and ↓ Pull buttons to sync data</div>`;
   }
   body.innerHTML=h;
   $('#syncSheet').classList.add('show');
