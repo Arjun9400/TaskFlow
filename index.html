@@ -752,8 +752,11 @@ async function checkRemoteMeta(autoSync=false){
     // Check lock — enforce with blocking overlay
     const lock=await readLock();
     if(lock&&lock.deviceId!==DEVICE_ID&&!_isLockExpired(lock)){
+      // Another live device owns the lock — block this one
       showDeviceLockOverlay(lock);
     }else{
+      // No lock, our lock, or expired lock — claim it now
+      await acquireLock();
       hideDeviceLockOverlay();
       hideLockBanner();
       const lr=$('#lockRow');if(lr)lr.style.display='none';
