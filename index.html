@@ -205,8 +205,8 @@ button{cursor:pointer;border:none;background:none}
 .allday-row{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-top:none;min-height:30px}
 .ad-cell{background:#fff;padding:3px;min-height:28px}
 .hourly-grid{display:grid;gap:0;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;position:relative}
-.hour-label{font-family:var(--font-mono);font-size:.65rem;color:var(--text3);padding:2px 6px;border-bottom:1px solid var(--border);background:var(--cream);display:flex;align-items:flex-start;justify-content:flex-end;min-height:50px}
-.hour-col{border-bottom:1px solid var(--border);border-left:1px solid var(--border);position:relative;min-height:50px;cursor:pointer;transition:background .15s}
+.hour-label{font-family:var(--font-mono);font-size:.65rem;color:var(--text3);padding:2px 6px;border-bottom:1px solid var(--border);background:var(--cream);display:flex;align-items:flex-start;justify-content:flex-end;min-height:60px}
+.hour-col{border-bottom:1px solid var(--border);border-left:1px solid var(--border);position:relative;min-height:60px;cursor:pointer;transition:background .15s}
 .hour-col:hover{background:rgba(192,84,46,.03)}
 .hour-col.today-col{background:rgba(192,84,46,.02)}
 .hour-col.drop-target{background:#fff3e0}
@@ -356,10 +356,6 @@ button{cursor:pointer;border:none;background:none}
 .drag-ghost{position:fixed;pointer-events:none;z-index:10000;background:var(--rust);color:#fff;padding:4px 12px;border-radius:20px;font-size:.75rem;font-family:var(--font-mono);box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:nowrap}
 
 /* FINISH DAY */
-.finish-day-bar{position:fixed;bottom:0;left:210px;right:0;background:linear-gradient(135deg,#1a2a2a,#1a1a2a);color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:200;transform:translateY(100%);transition:transform .3s}
-.finish-day-bar.show{transform:translateY(0)}
-.fdb-finish{padding:7px 18px;border-radius:8px;font-family:var(--font-mono);font-size:.78rem;background:var(--rust);color:#fff;transition:all .15s}
-.fdb-finish:hover{background:var(--rust-dark)}
 
 /* MOBILE */
 @media(max-width:768px){
@@ -370,7 +366,6 @@ button{cursor:pointer;border:none;background:none}
   #detailPanel.show{transform:translateY(0)}
   .modal{border-radius:16px 16px 0 0;max-height:92vh;align-self:flex-end}
   .cat-label-grid{grid-template-columns:1fr}
-  .finish-day-bar{left:0;bottom:56px}
   #topBar .period-label{min-width:auto;font-size:.85rem}
   .page-header h1{font-size:1.4rem}
   #toast{bottom:70px}
@@ -422,6 +417,59 @@ button{cursor:pointer;border:none;background:none}
 .pwd-note{font-size:.8rem;color:var(--text2);line-height:1.5;margin-bottom:14px;padding:10px 12px;background:var(--cream);border-radius:8px;border-left:3px solid var(--rust)}
 .pwd-actions-extra{margin-top:8px;text-align:center}
 .pwd-change-link{font-size:.75rem;color:var(--rust);cursor:pointer;text-decoration:underline;background:none;border:none;font-family:var(--font-body)}
+
+/* MOBILE CAL BAR */
+#mobileCalBar{display:none;background:var(--sbg);border-bottom:1px solid rgba(255,255,255,.07);padding:8px 12px;gap:8px;flex-direction:column;flex-shrink:0}
+.mcb-nav{display:flex;align-items:center;gap:6px}
+.mcb-nav button{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;flex-shrink:0}
+.mcb-nav button:hover{background:rgba(255,255,255,.15)}
+.mcb-nav .mcb-label{flex:1;text-align:center;font-family:var(--font-heading);font-weight:600;font-size:.95rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcb-today{font-size:.68rem!important;font-family:var(--font-mono)!important;width:auto!important;padding:0 10px!important;color:var(--stext)!important}
+.mcb-vtoggle{display:flex;border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden;width:100%}
+.mcb-vtoggle button{flex:1;padding:7px 4px;font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.05);color:var(--stext2);transition:all .15s;border-right:1px solid rgba(255,255,255,.1)}
+.mcb-vtoggle button:last-child{border-right:none}
+.mcb-vtoggle button.active{background:var(--rust);color:#fff}
+@media(max-width:768px){
+  #mobileCalBar.cal-active{display:flex}
+  #topBar #calNav,#topBar #viewToggle{display:none!important}
+  #oosyncBanner,#lockBanner{left:0;top:44px}
+}
+
+/* SYNC SHEET */
+#syncSheet .modal{max-width:360px;padding:20px}
+.ss-user{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream);border-radius:8px;margin-bottom:14px;font-size:.85rem}
+.ss-avatar{width:32px;height:32px;border-radius:50%;background:var(--rust);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.ss-name{font-weight:500;flex:1}
+.ss-signout-link{font-family:var(--font-mono);font-size:.7rem;color:var(--rust);cursor:pointer;background:none;border:none;padding:0}
+.ss-btn-row{display:flex;gap:8px;margin-bottom:8px}
+.ss-btn{flex:1;padding:10px;border-radius:10px;font-family:var(--font-mono);font-size:.8rem;font-weight:500;transition:all .15s;cursor:pointer;border:1px solid transparent}
+.ss-push{background:rgba(45,138,78,.12);color:var(--green);border-color:var(--green-border)}
+.ss-push:hover{background:var(--green-bg)}
+.ss-push:disabled{opacity:.4;cursor:not-allowed}
+.ss-pull{background:#e8eef5;color:#4a6fa5;border-color:#c3d3e8}
+.ss-pull:hover{background:#d5e4f5}
+.ss-pull:disabled{opacity:.4;cursor:not-allowed}
+.ss-signin-big{width:100%;padding:12px;border-radius:10px;background:var(--rust);color:#fff;font-family:var(--font-mono);font-size:.85rem;font-weight:500;transition:all .15s;cursor:pointer;border:none;margin-bottom:8px}
+.ss-signin-big:hover{background:var(--rust-dark)}
+.ss-status-line{font-family:var(--font-mono);font-size:.72rem;color:var(--text3);text-align:center;padding:6px}
+.ss-lock-warn{background:#fde8e8;color:#c53030;border-radius:8px;padding:8px 10px;font-size:.78rem;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ss-oos-warn{background:#fef3e0;color:#c57600;border-radius:8px;padding:8px 10px;font-size:.78rem;margin-bottom:8px}
+
+/* TOPBAR SYNC BTN */
+.topbar-cloud{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s;cursor:pointer;flex-shrink:0;position:relative}
+.topbar-cloud:hover{background:var(--sand);color:#fff}
+.topbar-cloud .tc-dot{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#4ade80;border:1.5px solid var(--paper)}
+.topbar-cloud .tc-dot.orange{background:#fb923c}
+.topbar-cloud .tc-dot.red{background:#f87171}
+.topbar-cloud .tc-dot.hidden{display:none}
+
+/* DAY VIEW ALL-DAY ROW */
+.dv-allday{background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:4px;overflow:hidden}
+.dv-allday-label{background:var(--cream);padding:5px 10px;font-family:var(--font-mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border)}
+.dv-allday-chips{padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;min-height:30px}
+
+/* WEEK BLOCK OVERLAP FIXED */
+.week-block{min-width:0}
 </style>
 </head>
 <body>
@@ -431,8 +479,22 @@ button{cursor:pointer;border:none;background:none}
   <div class="cal-nav" id="calNav" style="display:none"><button onclick="calPrev()">←</button><span class="period-label" id="periodLabel"></span><button onclick="calNext()">→</button><button onclick="calToday()" style="font-size:.72rem;font-family:var(--font-mono);width:auto;padding:0 10px">Today</button></div>
   <div class="view-toggle" id="viewToggle" style="display:none"><button onclick="setCalView('month')" id="vMonth">Month</button><button onclick="setCalView('week')" id="vWeek">Week</button><button onclick="setCalView('day')" id="vDay">Day</button></div>
   <div class="topbar-spacer"></div>
-  <button class="btn-add-task" onclick="openNewTask()">+ Add Task</button>
+  <button class="topbar-cloud" onclick="openSyncSheet()" title="Cloud Sync" id="topCloudBtn"><span>☁</span><span class="tc-dot hidden" id="topCloudDot"></span></button><button class="btn-add-task" onclick="openNewTask()">+ Add Task</button>
 </div>
+<div id="mobileCalBar">
+  <div class="mcb-nav">
+    <button onclick="calPrev()">←</button>
+    <span class="mcb-label" id="mPeriodLabel">—</span>
+    <button class="mcb-today" onclick="calToday()">Today</button>
+    <button onclick="calNext()">→</button>
+  </div>
+  <div class="mcb-vtoggle">
+    <button id="mvMonth" class="active" onclick="setCalView('month')">Month</button>
+    <button id="mvWeek" onclick="setCalView('week')">Week</button>
+    <button id="mvDay" onclick="setCalView('day')">Day</button>
+  </div>
+</div>
+<div class="modal-overlay" id="syncSheet"><div class="modal"><h2>☁ Cloud Sync</h2><div id="syncSheetBody"></div><div class="modal-footer"><button class="btn-cancel" onclick="$('#syncSheet').classList.remove('show')">Close</button></div></div></div>
 <div id="appBody">
   <div id="sidebar">
     <div class="sb-nav" id="sbNav"></div>
@@ -470,7 +532,6 @@ button{cursor:pointer;border:none;background:none}
 <div id="detailPanel"><button class="dp-close" onclick="closeDetail()">×</button><div id="dpContent"></div></div>
 <div class="modal-overlay" id="modalOverlay"><div class="modal" id="taskModal"></div></div>
 <div class="confirm-overlay" id="confirmOverlay"><div class="confirm-box" id="confirmBox"></div></div>
-<div class="finish-day-bar" id="finishDayBar"><span>🌙 Ready to call it a day?</span><button class="fdb-finish" onclick="openFinishDay()">Finish Day</button></div>
 <div id="toast"></div>
 <div class="drag-ghost" id="dragGhost" style="display:none"></div>
 
@@ -691,8 +752,42 @@ function updateSyncUI(){
   const on=!!fbUser;
   if(si)si.style.display=on?'':'none';
   if(sb)sb.style.display=on?'none':'';
-  if(!on){setSyncStatus('Local only','grey')}
-  else{const nm=(fbUser.displayName||fbUser.email||'').split(' ')[0];setSyncStatus(nm+' ✓','green')}
+  if(!on){setSyncStatus('Local only','grey');setCloudDot('hidden')}
+  else{const nm=(fbUser.displayName||fbUser.email||'').split(' ')[0];setSyncStatus(nm+' ✓','green');setCloudDot('green')}
+}
+function setCloudDot(cls){const d=$('#topCloudDot');if(d){d.className='tc-dot'+(cls==='hidden'?' hidden':' '+cls)}}
+function openSyncSheet(){
+  const body=$('#syncSheetBody');
+  if(!body)return;
+  let h='';
+  if(!fbUser){
+    h+=`<button class="ss-signin-big" onclick="fbSignIn();$('#syncSheet').classList.remove('show')">🔑 Sign in with Google</button>`;
+    h+=`<div class="ss-status-line">Sign in to enable encrypted cloud sync between devices</div>`;
+  }else{
+    const nm=fbUser.displayName||fbUser.email||'';
+    const initials=nm.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+    h+=`<div class="ss-user"><div class="ss-avatar">${initials}</div><div class="ss-name">${esc(nm)}</div><button class="ss-signout-link" onclick="fbSignOut();$('#syncSheet').classList.remove('show')">Sign out</button></div>`;
+    // Show lock warning if applicable
+    const lb=$('#lockBanner');
+    if(lb&&lb.style.display!=='none'){
+      const li=$('#lockInfo');
+      h+=`<div class="ss-lock-warn">🔒 ${li?li.textContent:'Another device is active'} <button class="banner-btn" style="padding:2px 8px;font-size:.72rem;margin-left:auto" onclick="forceTakeOver();$('#syncSheet').classList.remove('show')">Take Over</button></div>`;
+    }
+    // Show oos warning
+    const ob=$('#oosyncBanner');
+    if(ob&&ob.style.display!=='none'){
+      h+=`<div class="ss-oos-warn">⚠️ Cloud has newer data — pull to update</div>`;
+    }
+    h+=`<div class="ss-btn-row">`;
+    h+=`<button class="ss-btn ss-push" id="ssPush" onclick="manualPush();$('#syncSheet').classList.remove('show')">↑ Push to Cloud</button>`;
+    h+=`<button class="ss-btn ss-pull" id="ssPull" onclick="manualPull();$('#syncSheet').classList.remove('show')">↓ Pull from Cloud</button>`;
+    h+=`</div>`;
+    const st=$('#syncText');
+    const stText=st?st.textContent:'';
+    h+=`<div class="ss-status-line" id="ssStatusLine">${esc(stText)}</div>`;
+  }
+  body.innerHTML=h;
+  $('#syncSheet').classList.add('show');
 }
 function showOosyncBanner(){const b=$('#oosyncBanner');if(b)b.style.display='flex'}
 function hideOosyncBanner(){const b=$('#oosyncBanner');if(b)b.style.display='none';oosyncDismissed=true}
@@ -779,8 +874,8 @@ function dropTask(id){let i=S.tasks.findIndex(t=>t.id===id);if(i<0)return;let t=
 function undoTask(id,src){let list=S[src];let i=list.findIndex(t=>t.id===id);if(i<0)return;let t=list[i];t.finished=false;t.finishedAt='';t.timerRunning=false;t.deletedAt='';t.droppedAt='';S.tasks.push(t);list.splice(i,1);save();renderAll();toast('Task restored')}
 
 // ===== NAV =====
-function nav(page){currentPage=page;$$('.page').forEach(p=>p.classList.remove('active'));let el=$(`#page${page.charAt(0).toUpperCase()+page.slice(1)}`);if(el)el.classList.add('active');$$('#sbNav .sb-btn').forEach((b,i)=>b.classList.toggle('active',NAV_ITEMS[i].id===page));$$('#mobileNav button').forEach((b,i)=>b.classList.toggle('active',NAV_ITEMS[i].id===page));$('#calNav').style.display=page==='calendar'?'flex':'none';$('#viewToggle').style.display=page==='calendar'?'flex':'none';renderPage(page)}
-function renderAll(){renderPage(currentPage);renderSidebar();updateBanner();updateFinishDayBar()}
+function nav(page){currentPage=page;$$('.page').forEach(p=>p.classList.remove('active'));let el=$(`#page${page.charAt(0).toUpperCase()+page.slice(1)}`);if(el)el.classList.add('active');$$('#sbNav .sb-btn').forEach((b,i)=>b.classList.toggle('active',NAV_ITEMS[i].id===page));$$('#mobileNav button').forEach((b,i)=>b.classList.toggle('active',NAV_ITEMS[i].id===page));$('#calNav').style.display=page==='calendar'?'flex':'none';$('#viewToggle').style.display=page==='calendar'?'flex':'none';$('#mobileCalBar').classList.toggle('cal-active',page==='calendar');renderPage(page)}
+function renderAll(){renderPage(currentPage);renderSidebar();updateBanner()}
 function renderPage(p){switch(p){case'today':renderToday();break;case'calendar':renderCalendar();break;case'alltasks':renderAllTasks();break;case'deadlines':renderDeadlines();break;case'history':renderHistory();break;case'categories':renderCategories();break}}
 function buildNavBtns(){let h='';NAV_ITEMS.forEach((n,i)=>{h+=`<button class="sb-btn${i===0?' active':''}" onclick="nav('${n.id}')"><span class="icon">${n.icon}</span>${n.label}${n.id==='today'?'<span class="sb-badge" id="todayBadge" style="display:none">0</span>':''}</button>`});$('#sbNav').innerHTML=h;let mh='';NAV_ITEMS.forEach((n,i)=>{mh+=`<button${i===0?' class="active"':''} onclick="nav('${n.id}')"><span class="mn-icon">${n.icon}</span>${n.label}</button>`});$('#mobileNav').innerHTML=mh}
 
@@ -876,7 +971,7 @@ function renderCalendar(){updateCalNav();
 let h=`<div class="cal-filters"><select onchange="CAL_CF=this.value;renderCalendar()"><option value="">All Categories</option>${S.categories.map(c=>`<option value="${c.name}"${CAL_CF===c.name?' selected':''}>${c.name}</option>`).join('')}</select><select onchange="CAL_LF=this.value;renderCalendar()"><option value="">All Labels</option>${S.labels.map(l=>`<option value="${l.id}"${CAL_LF===l.id?' selected':''}>${l.name}</option>`).join('')}</select><button class="toggle-btn${CAL_SHOW==='deadlines'?' active':''}" onclick="CAL_SHOW=CAL_SHOW==='deadlines'?'':'deadlines';renderCalendar()">🏁 Deadlines only</button></div>`;
 switch(calView){case'month':h+=renderMonth();break;case'week':h+=renderWeek();break;case'day':h+=renderDay();break}
 $('#pageCalendar').innerHTML=h}
-function updateCalNav(){let l='';if(calView==='month')l=`${monthName(calDate)} ${calDate.getFullYear()}`;else if(calView==='week'){let s=weekStart(calDate),e=new Date(s);e.setDate(e.getDate()+6);l=`${s.getDate()} ${shortMonth(s)} – ${e.getDate()} ${shortMonth(e)} ${e.getFullYear()}`}else l=`${dayName(calDate)}, ${calDate.getDate()} ${monthName(calDate)}`;$('#periodLabel').textContent=l;['vMonth','vWeek','vDay'].forEach(id=>$('#'+id).classList.remove('active'));$('#v'+calView.charAt(0).toUpperCase()+calView.slice(1)).classList.add('active')}
+function updateCalNav(){let l='';if(calView==='month')l=`${monthName(calDate)} ${calDate.getFullYear()}`;else if(calView==='week'){let s=weekStart(calDate),e=new Date(s);e.setDate(e.getDate()+6);l=`${s.getDate()} ${shortMonth(s)} – ${e.getDate()} ${shortMonth(e)} ${e.getFullYear()}`}else l=`${dayName(calDate)}, ${calDate.getDate()} ${monthName(calDate)}`;$('#periodLabel').textContent=l;let ml=$('#mPeriodLabel');if(ml)ml.textContent=l;['vMonth','vWeek','vDay'].forEach(id=>$('#'+id).classList.remove('active'));$('#v'+calView.charAt(0).toUpperCase()+calView.slice(1)).classList.add('active');['mvMonth','mvWeek','mvDay'].forEach(id=>{let b=$('#'+id);if(b)b.classList.remove('active')});let mb=$('#mv'+calView.charAt(0).toUpperCase()+calView.slice(1));if(mb)mb.classList.add('active')}
 function calPrev(){if(calView==='month')calDate.setMonth(calDate.getMonth()-1);else if(calView==='week')calDate.setDate(calDate.getDate()-7);else calDate.setDate(calDate.getDate()-1);renderCalendar()}
 function calNext(){if(calView==='month')calDate.setMonth(calDate.getMonth()+1);else if(calView==='week')calDate.setDate(calDate.getDate()+7);else calDate.setDate(calDate.getDate()+1);renderCalendar()}
 function calToday(){calDate=new Date(TODAY);renderCalendar()}
@@ -913,25 +1008,58 @@ for(let hr=0;hr<24;hr++){let lbl=hr===0?'12 AM':hr<12?hr+' AM':hr===12?'12 PM':(
 h+=`</div></div>`;
 setTimeout(()=>placeWeekBlocks(days,tasks),20);return h}
 
+// Overlap layout: returns [{t, col, numCols}] for a list of timed tasks
+function overlapLayout(timed){
+  if(!timed.length)return[];
+  const sorted=[...timed].sort((a,b)=>{const[ah,am]=taskTime(a).split(':').map(Number),[bh,bm]=taskTime(b).split(':').map(Number);return ah*60+am-(bh*60+bm)});
+  const res=sorted.map(t=>({t,col:0,numCols:1}));
+  const colEnd=[]; // colEnd[i] = end minute of last task placed in column i
+  const taskMin=t=>{const[h,m]=taskTime(t).split(':').map(Number);return h*60+m};
+  sorted.forEach((t,i)=>{
+    const s=taskMin(t),e=s+(t.estDuration||60);
+    let c=0;while(c<colEnd.length&&colEnd[c]>s)c++;
+    res[i].col=c;colEnd[c]=e;
+  });
+  // Second pass: numCols = max col of any overlapping peer + 1
+  res.forEach((r,i)=>{
+    const s=taskMin(r.t),e=s+(r.t.estDuration||60);
+    let mx=r.col;
+    res.forEach((r2,j)=>{if(i===j)return;const s2=taskMin(r2.t),e2=s2+(r2.t.estDuration||60);if(s2<e&&e2>s)mx=Math.max(mx,r2.col)});
+    r.numCols=mx+1;
+  });
+  return res;
+}
 function placeWeekBlocks(days,tasks){let grid=$('.hourly-grid');if(!grid)return;grid.querySelectorAll('.week-block,.now-line').forEach(b=>b.remove());
 let cols=grid.querySelectorAll('.hour-col');if(!cols.length)return;
 let rh=cols[0].offsetHeight,gr=grid.getBoundingClientRect(),fr=cols[0].getBoundingClientRect(),oy=fr.top-gr.top;
 days.forEach((d,di)=>{let ds=toDS(d),dT=tasks.filter(t=>taskDate(t)===ds&&taskTime(t)&&!t.finished);
-dT.forEach(t=>{let[hh,mm]=taskTime(t).split(':').map(Number),dur=t.estDuration||30;let top=oy+(hh+mm/60)*rh,height=Math.max((dur/60)*rh,22);
-let ci=di;let cel=cols[ci];if(!cel)return;let cr=cel.getBoundingClientRect(),left=cr.left-gr.left+2,w=cr.width-4;
-let col=getCatColor(t.category),bl=document.createElement('div');bl.className='week-block'+(detailTaskId===t.id?' selected':'');bl.style.cssText=`top:${top}px;left:${left}px;width:${w}px;height:${height}px;background:${hexTint(col,.88)};border-color:${col}`;bl.draggable=true;bl.onclick=()=>openDetail(t.id,'tasks');bl.ondragstart=e=>onDragStart(e,t.id);bl.innerHTML=`<div class="wb-time">${fmt12(taskTime(t))}</div><div class="wb-name">${esc(t.name)}</div>${t.estDuration?`<div class="wb-dur">${fmtDur(t.estDuration)}</div>`:''}`;grid.appendChild(bl)});
+let layout=overlapLayout(dT);
+layout.forEach(({t,col,numCols})=>{let[hh,mm]=taskTime(t).split(':').map(Number),dur=t.estDuration||60;let top=oy+(hh+mm/60)*rh,height=Math.max((dur/60)*rh,28);
+let cel=cols[di];if(!cel)return;let cr=cel.getBoundingClientRect(),cellLeft=cr.left-gr.left,cellW=cr.width;
+const gap=2,slotW=(cellW-gap*(numCols+1))/numCols;const left=cellLeft+gap+col*(slotW+gap),w=Math.max(slotW,22);
+let catCol=getCatColor(t.category),bl=document.createElement('div');bl.className='week-block'+(detailTaskId===t.id?' selected':'');bl.style.cssText=`top:${top}px;left:${left}px;width:${w}px;height:${height}px;background:${hexTint(catCol,.88)};border-color:${catCol}`;bl.draggable=true;bl.onclick=()=>openDetail(t.id,'tasks');bl.ondragstart=e=>onDragStart(e,t.id);bl.innerHTML=`<div class="wb-time">${fmt12(taskTime(t))}</div><div class="wb-name">${esc(t.name)}</div>${t.estDuration&&height>44?`<div class="wb-dur">${fmtDur(t.estDuration)}</div>`:''}`;grid.appendChild(bl)});
 if(toDS(d)===todDS()){let now=new Date(),hr=now.getHours()+now.getMinutes()/60,cel=cols[di];if(cel){let cr=cel.getBoundingClientRect(),top=oy+hr*rh,left=cr.left-gr.left,w=cr.width;let ln=document.createElement('div');ln.className='now-line';ln.style.cssText=`top:${top}px;left:${left}px;width:${w}px`;grid.appendChild(ln)}}})}
 
 function renderDay(){let d=new Date(calDate),ds=toDS(d),td=todDS(),tasks=calTasks();
 let dT=tasks.filter(t=>taskDate(t)===ds&&!t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds);
-let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} tasks · ${dls.length} deadlines</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
+let allDayT=dT.filter(t=>!taskTime(t));
+let timedT=dT.filter(t=>!!taskTime(t));
+let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} tasks${allDayT.length?' ('+allDayT.length+' all-day)':''}${dls.length?' · '+dls.length+' deadline'+(dls.length>1?'s':''):''}</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
+// All-day section
+let hasAllDay=allDayT.length||dls.length;
+if(hasAllDay){h+=`<div class="dv-allday"><div class="dv-allday-label">All day</div><div class="dv-allday-chips">`;
+dls.forEach(t=>{let col=getCatColor(t.category),isDl=t.dueDate.slice(0,10),ov=isDl<td,isToday=isDl===td;let cls=ov?'deadline dl-overdue':isToday?'deadline dl-today':'deadline';h+=`<span class="cal-chip ${cls}" style="${cls==='deadline'?'background:'+hexTint(col,.85)+';border-color:'+col+';color:'+col:''}" onclick="openDetail('${t.id}','${t.finished?'history':'tasks'}')">⬡ ${esc(t.name)}</span>`});
+allDayT.forEach(t=>{let col=getCatColor(t.category);h+=`<span class="cal-chip task" style="border-color:${col};background:${hexTint(col,.92)}" onclick="openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')">${esc(t.name)}</span>`});
+h+=`</div></div>`}
 h+=`<div class="week-grid"><div class="hourly-grid" style="grid-template-columns:50px 1fr;position:relative">`;
 for(let hr=0;hr<24;hr++){let lbl=hr===0?'12 AM':hr<12?hr+' AM':hr===12?'12 PM':(hr-12)+' PM';h+=`<div class="hour-label">${lbl}</div><div class="hour-col${ds===td?' today-col':''}" data-date="${ds}" data-hour="${hr}" onclick="openNewTask('${ds}','${String(hr).padStart(2,'0')}:00')" ondragover="event.preventDefault();this.classList.add('drop-target')" ondragleave="this.classList.remove('drop-target')" ondrop="onDropWeek(event,'${ds}',${hr})"><div class="hour-half"></div></div>`}
 h+=`</div></div>`;
-setTimeout(()=>{let grid=$('.hourly-grid');if(!grid)return;grid.querySelectorAll('.week-block,.now-line').forEach(b=>b.remove());let cols=grid.querySelectorAll('.hour-col');if(!cols.length)return;let rh=cols[0].offsetHeight,gr=grid.getBoundingClientRect(),fr=cols[0].getBoundingClientRect(),oy=fr.top-gr.top,left=fr.left-gr.left+2,w=fr.width-4;
-let dayT=tasks.filter(t=>taskDate(t)===ds&&taskTime(t)&&!t.finished);
-dayT.forEach(t=>{let[hh,mm]=taskTime(t).split(':').map(Number),dur=t.estDuration||30,top=oy+(hh+mm/60)*rh,height=Math.max((dur/60)*rh,22);let col=getCatColor(t.category),bl=document.createElement('div');bl.className='week-block'+(detailTaskId===t.id?' selected':'');bl.style.cssText=`top:${top}px;left:${left}px;width:${w}px;height:${height}px;background:${hexTint(col,.88)};border-color:${col}`;bl.draggable=true;bl.onclick=()=>openDetail(t.id,'tasks');bl.ondragstart=e=>onDragStart(e,t.id);bl.innerHTML=`<div class="wb-time">${fmt12(taskTime(t))}</div><div class="wb-name">${esc(t.name)}</div>${t.estDuration?`<div class="wb-dur">${fmtDur(t.estDuration)}</div>`:''}`;grid.appendChild(bl)});
-if(ds===todDS()){let now=new Date(),hr=now.getHours()+now.getMinutes()/60,top=oy+hr*rh;let ln=document.createElement('div');ln.className='now-line';ln.style.cssText=`top:${top}px;left:${left}px;width:${w}px`;grid.appendChild(ln)}},20);
+setTimeout(()=>{let grid=$('.hourly-grid');if(!grid)return;grid.querySelectorAll('.week-block,.now-line').forEach(b=>b.remove());let cols=grid.querySelectorAll('.hour-col');if(!cols.length)return;let rh=cols[0].offsetHeight,gr=grid.getBoundingClientRect(),fr=cols[0].getBoundingClientRect(),oy=fr.top-gr.top;
+let layout=overlapLayout(timedT);
+layout.forEach(({t,col,numCols})=>{let[hh,mm]=taskTime(t).split(':').map(Number),dur=t.estDuration||60,top=oy+(hh+mm/60)*rh,height=Math.max((dur/60)*rh,28);
+let cellLeft=fr.left-gr.left,cellW=fr.width;const gap=2,slotW=(cellW-gap*(numCols+1))/numCols;const left=cellLeft+gap+col*(slotW+gap),w=Math.max(slotW,22);
+let catCol=getCatColor(t.category),bl=document.createElement('div');bl.className='week-block'+(detailTaskId===t.id?' selected':'');bl.style.cssText=`top:${top}px;left:${left}px;width:${w}px;height:${height}px;background:${hexTint(catCol,.88)};border-color:${catCol}`;bl.draggable=true;bl.onclick=()=>openDetail(t.id,'tasks');bl.ondragstart=e=>onDragStart(e,t.id);bl.innerHTML=`<div class="wb-time">${fmt12(taskTime(t))}</div><div class="wb-name">${esc(t.name)}</div>${t.estDuration&&height>44?`<div class="wb-dur">${fmtDur(t.estDuration)}</div>`:''}`;grid.appendChild(bl)});
+if(ds===todDS()){let now=new Date(),hr=now.getHours()+now.getMinutes()/60,top=oy+hr*rh;let ln=document.createElement('div');ln.className='now-line';ln.style.cssText=`top:${top}px;left:${fr.left-gr.left}px;width:${fr.width}px`;grid.appendChild(ln)}},20);
 return h}
 
 // ===== HISTORY =====
@@ -1047,14 +1175,7 @@ function confirmDel(id,src){showConfirm('Delete Task','Are you sure you want to 
 function showConfirm(title,body,onOk){$('#confirmBox').innerHTML=`<h3>${title}</h3><div class="cb-body">${body}</div><div class="cb-actions"><button class="btn-cancel" onclick="closeConfirm()">Cancel</button><button class="btn-save" id="cfmOk">Confirm</button></div>`;$('#cfmOk').onclick=()=>{closeConfirm();onOk()};$('#confirmOverlay').classList.add('show')}
 function closeConfirm(){$('#confirmOverlay').classList.remove('show')}
 
-// ===== FINISH DAY =====
-function updateFinishDayBar(){let td=todDS(),has=S.tasks.some(t=>!t.finished&&taskDate(t)&&taskDate(t)<=td);$('#finishDayBar').classList.toggle('show',has&&currentPage==='today')}
-function openFinishDay(){let td=todDS(),tasks=S.tasks.filter(t=>!t.finished&&taskDate(t)&&taskDate(t)<=td);
-let h=`<h3>🌙 Finish Day</h3><div class="cb-body">Check tasks to drop them. Unchecked tasks stay for today.</div>`;
-tasks.forEach(t=>{h+=`<div class="fd-task"><input type="checkbox" data-id="${t.id}"><span>${esc(t.name)}</span></div>`});
-h+=`<div class="cb-actions" style="margin-top:16px"><button class="btn-cancel" onclick="closeConfirm()">Cancel</button><button class="btn-save" onclick="execFinishDay()">Confirm</button></div>`;
-$('#confirmBox').innerHTML=h;$('#confirmOverlay').classList.add('show')}
-function execFinishDay(){let td=todDS();$$('#confirmBox .fd-task input[type=checkbox]').forEach(cb=>{let id=cb.dataset.id;if(cb.checked)dropTask(id);else{let t=S.tasks.find(x=>x.id===id);if(t){let time=taskTime(t);t.scheduledDate=time?td+'T'+time:td}}});save();closeConfirm();renderAll();toast('Day finished!')}
+// ===== FINISH DAY =====}});save();closeConfirm();renderAll();toast('Day finished!')}
 
 // ===== DRAG & DROP =====
 function onDragStart(e,taskId){dragTaskId=taskId;let t=S.tasks.find(x=>x.id===taskId);if(!t)return;e.dataTransfer.setData('text/plain',taskId);let g=$('#dragGhost');g.textContent=t.name;g.style.display='block';
