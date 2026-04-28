@@ -286,9 +286,17 @@ button{cursor:pointer;border:none;background:none}
 /* Time log */
 .timelog-day{margin-bottom:16px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .timelog-day-header{padding:10px 14px;background:var(--cream);display:flex;justify-content:space-between;align-items:center;font-size:.85rem;font-weight:600}
-.timelog-entry{padding:8px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:.82rem}
+.timelog-entry{padding:8px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:.82rem;cursor:pointer;transition:background .15s}
+.timelog-entry:hover{background:var(--cream)}
+.timelog-entry .tle-arrow{font-family:var(--font-mono);font-size:.72rem;color:var(--text3);transition:transform .2s;width:10px;flex-shrink:0}
+.timelog-entry.expanded .tle-arrow{transform:rotate(90deg)}
 .tle-name{flex:1}
 .tle-time{font-family:var(--font-mono);font-size:.78rem;color:var(--text2)}
+.tle-sessions{display:none;padding:4px 14px 8px 38px;background:#fbfaf6;border-top:1px solid var(--border)}
+.timelog-entry.expanded + .tle-sessions{display:block}
+.tle-session{display:flex;justify-content:space-between;font-size:.74rem;color:var(--text3);padding:3px 0;font-family:var(--font-mono)}
+.tle-session .tle-s-time{color:var(--text2)}
+.tle-session-empty{font-size:.72rem;color:var(--text3);font-style:italic;padding:4px 0}
 
 /* CATEGORIES */
 .cat-label-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
@@ -360,7 +368,13 @@ button{cursor:pointer;border:none;background:none}
 .dp-subtask button{padding:4px 10px;border-radius:6px;font-size:.72rem;font-family:var(--font-mono);border:1px solid var(--border);background:var(--cream);transition:all .15s;cursor:pointer}
 .dp-subtask button:hover{background:var(--sand);color:#fff}
 .dp-sessions{margin-bottom:16px}
-.dp-session{display:flex;justify-content:space-between;padding:4px 0;font-size:.78rem;color:var(--text2);border-bottom:1px solid var(--border)}
+.dp-session{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.78rem;color:var(--text2);border-bottom:1px solid var(--border);gap:8px}
+.dp-session .dps-info{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dp-session .dps-dur{font-family:var(--font-mono);font-size:.74rem;color:var(--text2);flex-shrink:0}
+.dp-sess-edit{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--cream);font-size:.72rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.dp-sess-edit:hover{background:#e8eef5;color:#4a6fa5;border-color:#4a6fa5}
+.dp-sess-add{padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--cream);font-family:var(--font-mono);font-size:.7rem;cursor:pointer;color:var(--text2);transition:all .15s}
+.dp-sess-add:hover{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
 .dp-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .dp-actions button{padding:8px 18px;border-radius:8px;font-family:var(--font-mono);font-size:.78rem;transition:all .15s;border:1px solid var(--border);cursor:pointer}
 .da-finish{background:var(--green);color:#fff;border-color:var(--green)!important}
@@ -608,6 +622,7 @@ body.has-unpushed .sync-status-bar .sdot.red{background:#e53e3e;animation:dirtyT
 <div id="mobileNav"></div>
 <div id="detailPanel"><button class="dp-close" onclick="closeDetail()">×</button><div id="dpContent"></div></div>
 <div class="modal-overlay" id="modalOverlay"><div class="modal" id="taskModal"></div></div>
+<div class="modal-overlay" id="sessionModalOverlay"><div class="modal" id="sessionModal" style="max-width:420px"></div></div>
 <div class="confirm-overlay" id="confirmOverlay"><div class="confirm-box" id="confirmBox"></div></div>
 <div id="toast"></div>
 <div class="drag-ghost" id="dragGhost" style="display:none"></div>
@@ -1050,14 +1065,16 @@ const relDate=ds=>{if(ds===todDS())return'Today';if(ds===tomorrowDS())return'Tmr
 const taskDate=t=>t.scheduledDate?t.scheduledDate.slice(0,10):'';
 const taskTime=t=>t.scheduledDate&&t.scheduledDate.length>10?t.scheduledDate.slice(11,16):'';
 const getCatColor=name=>{let c=S.categories.find(c=>c.name===name);return c?c.color:'#999'};
+const findAnyTask=id=>S.tasks.find(t=>t.id===id)||S.history.find(t=>t.id===id)||S.deletedHistory.find(t=>t.id===id)||S.droppedHistory.find(t=>t.id===id)||null;
 const getLabelObj=id=>S.labels.find(l=>l.id===id);
 
 // ===== STATE =====
 const DEF_CATS=[{name:'Work',color:'#4a6fa5',weight:1},{name:'Personal',color:'#c0542e',weight:1},{name:'Health',color:'#2d8a4e',weight:1},{name:'Learning',color:'#7c5ab8',weight:1},{name:'Creative',color:'#c57600',weight:1}];
 const DEF_LABELS=[{id:'urgent',name:'Urgent',color:'#e53e3e'},{id:'high',name:'High',color:'#dd6b20'},{id:'medium',name:'Medium',color:'#718096'},{id:'low',name:'Low',color:'#38a169'}];
 const blankState=()=>({tasks:[],history:[],deletedHistory:[],droppedHistory:[],subtaskHistory:[],dailyTimeLogs:{},categories:DEF_CATS.map(c=>({...c})),labels:DEF_LABELS.map(l=>({...l}))});
-const normSub=s=>({id:s.id||gid(),name:s.name||'',elapsed:s.elapsed||0,timerRunning:false,finished:!!s.finished,finishedAt:s.finishedAt||'',sessions:s.sessions||[]});
-const normTask=t=>({id:t.id||gid(),name:t.name||'',description:t.description||'',category:t.category||'',label:t.label||'',scheduledDate:t.scheduledDate||'',originalScheduledDate:t.originalScheduledDate||'',dueDate:t.dueDate||'',recurring:t.recurring||{type:'none',every:1,weekday:0,monthday:1},estDuration:t.estDuration||0,weight:t.weight||1,hideFromCalendar:!!t.hideFromCalendar,elapsed:t.elapsed||0,timerRunning:false,finished:!!t.finished,finishedAt:t.finishedAt||'',createdAt:t.createdAt||new Date().toISOString(),sessions:t.sessions||[],subtasks:(t.subtasks||[]).map(normSub),deletedAt:t.deletedAt||'',droppedAt:t.droppedAt||''});
+const normSub=s=>({id:s.id||gid(),name:s.name||'',elapsed:s.elapsed||0,timerRunning:false,finished:!!s.finished,finishedAt:s.finishedAt||'',sessions:(s.sessions||[]).map(_normSess)});
+const _normSess=ss=>({start:ss.start||'',end:ss.end||null,startElapsed:ss.startElapsed||0,duration:ss.duration||0,pausedMs:ss.pausedMs||0});
+const normTask=t=>({id:t.id||gid(),name:t.name||'',description:t.description||'',category:t.category||'',label:t.label||'',scheduledDate:t.scheduledDate||'',originalScheduledDate:t.originalScheduledDate||'',dueDate:t.dueDate||'',recurring:t.recurring||{type:'none',every:1,weekday:0,monthday:1},estDuration:t.estDuration||0,weight:t.weight||1,hideFromCalendar:!!t.hideFromCalendar,elapsed:t.elapsed||0,timerRunning:false,finished:!!t.finished,finishedAt:t.finishedAt||'',createdAt:t.createdAt||new Date().toISOString(),sessions:(t.sessions||[]).map(_normSess),subtasks:(t.subtasks||[]).map(normSub),deletedAt:t.deletedAt||'',droppedAt:t.droppedAt||''});
 const normState=s=>{let st={...blankState(),...s};st.tasks=(st.tasks||[]).map(normTask);st.history=(st.history||[]).map(normTask);st.deletedHistory=(st.deletedHistory||[]).map(normTask);st.droppedHistory=(st.droppedHistory||[]).map(normTask);st.subtaskHistory=(st.subtaskHistory||[]).map(e=>({id:e.id||gid(),parentId:e.parentId||'',parentName:e.parentName||'',subId:e.subId||'',name:e.name||'',category:e.category||'',finishedAt:e.finishedAt||'',elapsed:e.elapsed||0}));if(!st.categories||!st.categories.length)st.categories=DEF_CATS.map(c=>({...c}));if(!st.labels)st.labels=DEF_LABELS.map(l=>({...l}));st.dailyTimeLogs=st.dailyTimeLogs||{};return st};
 let S=blankState();
 
@@ -1073,7 +1090,16 @@ const NAV_ITEMS=[{id:'today',icon:'☀️',label:'Today'},{id:'calendar',icon:'�
 
 // ===== PERSISTENCE =====
 function save(){updateDailyTimeLogs();try{localStorage.setItem('taskflow_v9',JSON.stringify(S))}catch(e){}markDirty()}
-function load(){try{let r=localStorage.getItem('taskflow_v9')||localStorage.getItem('taskflow_v8');if(r)S=normState(JSON.parse(r));else S=blankState()}catch(e){S=blankState()}S.tasks.forEach(t=>{t.timerRunning=false;(t.subtasks||[]).forEach(s=>s.timerRunning=false)})}
+function load(){try{let r=localStorage.getItem('taskflow_v9')||localStorage.getItem('taskflow_v8');if(r)S=normState(JSON.parse(r));else S=blankState()}catch(e){S=blankState()}S.tasks.forEach(t=>{t.timerRunning=false;(t.subtasks||[]).forEach(s=>s.timerRunning=false)});_closeOrphanSessions()}
+function _closeOrphanSessions(){
+  const closeFor=item=>{(item.sessions||[]).forEach(ss=>{if(ss.start&&!ss.end){
+    // Deduce duration from item.elapsed - startElapsed (works because elapsed was flushed during the run)
+    const deduced=Math.max(0,(item.elapsed||0)-(ss.startElapsed||0)-(ss.pausedMs||0));
+    ss.duration=deduced;
+    ss.end=new Date(new Date(ss.start).getTime()+deduced+(ss.pausedMs||0)).toISOString();
+  }})};
+  ['tasks','history','deletedHistory','droppedHistory'].forEach(k=>(S[k]||[]).forEach(t=>{closeFor(t);(t.subtasks||[]).forEach(closeFor)}));
+}
 function exportData(){let b=new Blob([JSON.stringify({...S,_meta:{timestamp:Date.now(),version:9}},null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='sync.json';a.click();toast('Exported sync.json')}
 function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{S=normState(JSON.parse(r.result));save();renderAll();toast('Data imported!')}catch(er){toast('Import failed')}};r.readAsText(f);e.target.value=''}
 function updateDailyTimeLogs(){let td=todDS(),logs={};S.tasks.forEach(t=>{let el=getElapsed(t);let hasSubs=(t.subtasks||[]).length>0;if(el>0){let label=hasSubs?(t.name+' (main)'):t.name;logs[t.id]={name:label,elapsed:el,category:t.category}}(t.subtasks||[]).forEach(s=>{let sel=getElapsed(s);if(sel>0)logs[t.id+':'+s.id]={name:t.name+' → '+s.name,elapsed:sel,category:t.category}})});if(Object.keys(logs).length)S.dailyTimeLogs[td]={...S.dailyTimeLogs[td],...logs}}
@@ -1081,14 +1107,27 @@ function updateDailyTimeLogs(){let td=todDS(),logs={};S.tasks.forEach(t=>{let el
 // ===== TIMER =====
 function getElapsed(item){let e=item.elapsed||0;if(item.timerRunning&&timerStartTime)e+=Date.now()-timerStartTime;return e}
 function stopAllTimers(){if(timerInterval){clearInterval(timerInterval);timerInterval=null}if(timerTaskId){let t=S.tasks.find(x=>x.id===timerTaskId);if(t){if(timerSubId){let s=(t.subtasks||[]).find(x=>x.id===timerSubId);if(s&&s.timerRunning){s.elapsed+=Date.now()-timerStartTime;s.timerRunning=false;closeSession(s)}}else if(t.timerRunning){t.elapsed+=Date.now()-timerStartTime;t.timerRunning=false;closeSession(t)}}}timerStartTime=null;timerTaskId=null;timerSubId=null;updateBanner()}
-function startTimer(taskId,subId){stopAllTimers();let t=S.tasks.find(x=>x.id===taskId);if(!t)return;let item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;if(!item)return;item.timerRunning=true;timerStartTime=Date.now();timerTaskId=taskId;timerSubId=subId||null;openSession(item);timerInterval=setInterval(updateTimerDisplays,500);updateBanner();save()}
+function startTimer(taskId,subId){stopAllTimers();let t=S.tasks.find(x=>x.id===taskId);if(!t)return;let item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;if(!item)return;item.timerRunning=true;timerStartTime=Date.now();_lastFlushAt=Date.now();timerTaskId=taskId;timerSubId=subId||null;openSession(item);timerInterval=setInterval(updateTimerDisplays,500);updateBanner();save()}
 function toggleTimer(taskId,subId){let t=S.tasks.find(x=>x.id===taskId);if(!t)return;let item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;if(!item)return;if(item.timerRunning){stopAllTimers();save()}else startTimer(taskId,subId);renderAll()}
 function toggleRunningTimer(){if(timerTaskId)toggleTimer(timerTaskId,timerSubId)}
 function stopRunningTimer(){if(timerTaskId){let tid=timerTaskId;stopAllTimers();save();renderAll();openDetail(tid,'tasks')}}
-function openSession(item){let ss=item.sessions=item.sessions||[];let now=new Date().toISOString();let last=ss[ss.length-1];if(last&&last.end&&(Date.now()-new Date(last.end).getTime())<18e5){last.end=null;return}ss.push({start:now,end:null,startElapsed:item.elapsed,duration:0})}
-function closeSession(item){let ss=item.sessions||[];let last=ss[ss.length-1];if(last&&!last.end){last.end=new Date().toISOString();last.duration=new Date(last.end).getTime()-new Date(last.start).getTime()}}
+function openSession(item){let ss=item.sessions=item.sessions||[];let now=new Date().toISOString();let last=ss[ss.length-1];if(last&&last.end&&(Date.now()-new Date(last.end).getTime())<18e5){let pause=Date.now()-new Date(last.end).getTime();last.pausedMs=(last.pausedMs||0)+pause;last.end=null;return}ss.push({start:now,end:null,startElapsed:item.elapsed,duration:0,pausedMs:0})}
+function closeSession(item){let ss=item.sessions||[];let last=ss[ss.length-1];if(last&&!last.end){last.end=new Date().toISOString();let raw=new Date(last.end).getTime()-new Date(last.start).getTime();last.duration=Math.max(0,raw-(last.pausedMs||0))}}
 function updateBanner(){let b=$('#timerBanner');if(!timerTaskId){b.classList.remove('show');return}let t=S.tasks.find(x=>x.id===timerTaskId);if(!t){b.classList.remove('show');return}b.classList.add('show');$('#tbName').textContent=t.name;$('#tbSub').textContent=timerSubId?'→ '+((t.subtasks||[]).find(s=>s.id===timerSubId)||{}).name||'':'';let item=timerSubId?(t.subtasks||[]).find(s=>s.id===timerSubId):t;if(item)$('#tbTime').textContent=fmtT(getElapsed(item));$('#tbPause').textContent=item&&item.timerRunning?'⏸ Pause':'▶ Resume'}
-function updateTimerDisplays(){updateBanner();$$('.timer-display').forEach(el=>{let t=S.tasks.find(x=>x.id===el.dataset.tid);if(!t)return;let item=el.dataset.sid?(t.subtasks||[]).find(s=>s.id===el.dataset.sid):t;if(item)el.textContent=fmtT(getElapsed(item))})}
+function updateTimerDisplays(){if(timerTaskId&&timerStartTime&&Date.now()-_lastFlushAt>=30000)flushRunningElapsed();updateBanner();$$('.timer-display').forEach(el=>{let t=S.tasks.find(x=>x.id===el.dataset.tid);if(!t)return;let item=el.dataset.sid?(t.subtasks||[]).find(s=>s.id===el.dataset.sid):t;if(item)el.textContent=fmtT(getElapsed(item))})}
+let _lastFlushAt=0;
+function flushRunningElapsed(){
+  if(!timerTaskId||!timerStartTime)return;
+  const t=S.tasks.find(x=>x.id===timerTaskId);if(!t)return;
+  const item=timerSubId?(t.subtasks||[]).find(s=>s.id===timerSubId):t;if(!item)return;
+  const now=Date.now();
+  item.elapsed=(item.elapsed||0)+(now-timerStartTime);
+  timerStartTime=now;
+  _lastFlushAt=now;
+  // Write to local only — don't markDirty (cloud will catch up via auto-push when timer stops)
+  updateDailyTimeLogs();
+  try{localStorage.setItem('taskflow_v9',JSON.stringify(S))}catch(e){}
+}
 
 // ===== RECURRING =====
 function getNextDate(task){let d=parseDS(taskDate(task));if(!d)d=new Date(TODAY);let r=task.recurring||{type:'none'};switch(r.type){case'daily':d.setDate(d.getDate()+1);break;case'every_n':d.setDate(d.getDate()+(r.every||1));break;case'weekday':{let tgt=r.weekday||0;d.setDate(d.getDate()+1);while(d.getDay()!==tgt)d.setDate(d.getDate()+1);break}case'monthday':{let tgt=r.monthday||1;d.setMonth(d.getMonth()+1);d.setDate(Math.min(tgt,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));break}default:return null}return toDS(d)}
@@ -1356,7 +1395,29 @@ $('#pageHistory').innerHTML=h}
 function renderTimeLog(){let logs=S.dailyTimeLogs,dates=Object.keys(logs).sort((a,b)=>b.localeCompare(a));if(!dates.length)return`<div class="empty-state"><div class="es-icon">⏱</div><div class="es-text">No time logs yet</div></div>`;
 let h='';dates.forEach(date=>{let entries=Object.entries(logs[date]).map(([k,v])=>({key:k,...v})).sort((a,b)=>(b.elapsed||0)-(a.elapsed||0));let total=entries.reduce((a,e)=>a+(e.elapsed||0),0);
 h+=`<div class="timelog-day"><div class="timelog-day-header"><span>${date}</span><span style="font-family:var(--font-mono);color:var(--green)">${fmtMs(total)}</span></div>`;
-entries.forEach(e=>{let col=getCatColor(e.category);h+=`<div class="timelog-entry"><span class="tle-name">${esc(e.name)}</span>${e.category?`<span class="tc-pill" style="background:${hexTint(col,.85)};color:${col};font-size:.65rem">${esc(e.category)}</span>`:''}<span class="tle-time">${fmtMs(e.elapsed||0)}</span></div>`});
+entries.forEach(e=>{let col=getCatColor(e.category);
+// Find sessions for this date
+let parts=e.key.split(':'),tid=parts[0],sid=parts[1]||null;
+let task=findAnyTask(tid);
+let sessionList='';
+if(task){
+  let item=sid?(task.subtasks||[]).find(s=>s.id===sid):task;
+  if(item){
+    let daySess=(item.sessions||[]).filter(ss=>ss.start&&ss.start.slice(0,10)===date&&ss.end);
+    daySess.sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+    if(daySess.length){
+      sessionList=daySess.map(ss=>{
+        let st=new Date(ss.start),en=new Date(ss.end);
+        let sLabel=st.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' – '+en.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        let pauseInfo=ss.pausedMs>30000?' <span style="opacity:.6">(paused '+fmtMs(ss.pausedMs)+')</span>':'';
+        return `<div class="tle-session"><span class="tle-s-time">${sLabel}${pauseInfo}</span><span>${fmtMs(ss.duration||0)}</span></div>`;
+      }).join('');
+    } else {
+      sessionList=`<div class="tle-session-empty">No detailed sessions recorded for this day</div>`;
+    }
+  }
+}
+h+=`<div class="timelog-entry" onclick="this.classList.toggle('expanded')"><span class="tle-arrow">▶</span><span class="tle-name">${esc(e.name)}</span>${e.category?`<span class="tc-pill" style="background:${hexTint(col,.85)};color:${col};font-size:.65rem">${esc(e.category)}</span>`:''}<span class="tle-time">${fmtMs(e.elapsed||0)}</span></div><div class="tle-sessions">${sessionList}</div>`});
 h+=`</div>`});return h}
 function clearHistory(){if(historyTab==='completed'){S.history=[];S.subtaskHistory=[]}else if(historyTab==='deleted')S.deletedHistory=[];else if(historyTab==='dropped')S.droppedHistory=[];else if(historyTab==='timelog')S.dailyTimeLogs={};save();renderHistory();toast('History cleared')}
 function undoSubHist(entryId){let i=S.subtaskHistory.findIndex(e=>e.id===entryId);if(i<0)return;let e=S.subtaskHistory[i];let parent=S.tasks.find(x=>x.id===e.parentId);let restored=false;if(parent){let s=(parent.subtasks||[]).find(x=>x.id===e.subId);if(s){s.finished=false;s.finishedAt='';restored=true}}S.subtaskHistory.splice(i,1);save();renderAll();toast(restored?'Subtask restored':'Record removed (parent gone)')}
@@ -1440,9 +1501,10 @@ if((t.subtasks||[]).length){h+=`<div class="dp-subtasks"><div style="font-family
 let pend=t.subtasks.filter(s=>!s.finished),fin=t.subtasks.filter(s=>s.finished);
 pend.forEach(s=>{let sel=getElapsed(s);h+=`<div class="dp-subtask"><span class="dps-name">${esc(s.name)}</span><span class="dps-timer timer-display" data-tid="${t.id}" data-sid="${s.id}">${fmtT(sel)}</span>${isActive?`<button onclick="toggleTimer('${t.id}','${s.id}')">${s.timerRunning?'⏸':'▶'}</button><button onclick="finishSub('${t.id}','${s.id}')">✓</button>`:''}</div>`});
 fin.forEach(s=>{h+=`<div class="dp-subtask done"><span class="dps-name">${esc(s.name)}</span><span class="dps-timer">${fmtMs(s.elapsed||0)}</span>${isActive?`<button onclick="undoSub('${t.id}','${s.id}')">↩</button>`:''}</div>`});h+=`</div>`}
-let allSess=[...(t.sessions||[])];(t.subtasks||[]).forEach(s=>(s.sessions||[]).forEach(ss=>allSess.push({...ss,subName:s.name})));allSess.sort((a,b)=>(b.start||'').localeCompare(a.start||''));
-if(allSess.length){h+=`<div class="dp-sessions"><div style="font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Sessions (${allSess.length})</div><div style="font-size:.78rem;color:var(--green);margin-bottom:6px">Total: ${fmtMs(tel)}</div>`;
-allSess.slice(0,12).forEach(ss=>{let d=new Date(ss.start);h+=`<div class="dp-session"><span>${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${ss.subName?' → '+esc(ss.subName):''}</span><span>${fmtMs(ss.duration||0)}</span></div>`});h+=`</div>`}
+let allSess=[];(t.sessions||[]).forEach((ss,i)=>allSess.push({...ss,_subId:'',_idx:i,subName:''}));(t.subtasks||[]).forEach(s=>(s.sessions||[]).forEach((ss,i)=>allSess.push({...ss,_subId:s.id,_idx:i,subName:s.name})));allSess.sort((a,b)=>(b.start||'').localeCompare(a.start||''));
+if(allSess.length||isActive){h+=`<div class="dp-sessions"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;color:var(--text3)">Sessions${allSess.length?' ('+allSess.length+')':''}</div>${isActive?`<button class="dp-sess-add" onclick="openSessionEditor('${t.id}','','','new')">+ Add</button>`:''}</div><div style="font-size:.78rem;color:var(--green);margin-bottom:6px">Total: ${fmtMs(tel)}</div>`;
+if(!allSess.length)h+=`<div style="font-size:.78rem;color:var(--text3);font-style:italic;padding:8px 0">No sessions yet</div>`;
+allSess.slice(0,12).forEach(ss=>{let d=new Date(ss.start);let isOpen=!ss.end;let editBtn=(isActive&&!isOpen)?`<button class="dp-sess-edit" onclick="event.stopPropagation();openSessionEditor('${t.id}','${ss._subId}',${ss._idx},'edit')" title="Edit session">✎</button>`:'';h+=`<div class="dp-session"><span class="dps-info">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${ss.subName?' → '+esc(ss.subName):''}${isOpen?' <span style="color:var(--green)">●live</span>':''}${ss.pausedMs>30000?` <span style="opacity:.6;font-size:.7rem">(${fmtMs(ss.pausedMs)} pause)</span>`:''}</span><span class="dps-dur">${fmtMs(ss.duration||0)}</span>${editBtn}</div>`});h+=`</div>`}
 h+=`<div class="dp-actions">`;
 if(isActive){h+=`<button class="da-finish" onclick="finishTask('${t.id}');closeDetail()">✓ Finish</button><button class="da-edit" onclick="openEditTask('${t.id}','${detailSource}')">✎ Edit</button><button class="da-drop" onclick="dropTask('${t.id}')">⬇ Drop</button>`}
 else if(detailSource==='history'){h+=`<button class="da-undo" onclick="undoTask('${t.id}','history')">↩ Undo</button><button class="da-edit" onclick="openEditTask('${t.id}','history')">✎ Edit</button>`}
@@ -1450,6 +1512,92 @@ else{h+=`<button class="da-undo" onclick="undoTask('${t.id}','${detailSource}')"
 h+=`<button class="da-delete" onclick="confirmDel('${t.id}','${detailSource}')">🗑 Delete</button></div>`;
 $('#dpContent').innerHTML=h;$('#detailPanel').classList.add('show')}
 function closeDetail(){$('#detailPanel').classList.remove('show');detailTaskId=null}
+
+// ===== SESSION EDITOR =====
+let _sessEditState=null; // {taskId, subId, idx, mode}
+function _toLocalInput(iso){if(!iso)return'';const d=new Date(iso);const pad=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}
+function _fromLocalInput(v){if(!v)return null;return new Date(v).toISOString()}
+function openSessionEditor(taskId,subId,idx,mode){
+  const t=S.tasks.find(x=>x.id===taskId);if(!t){toast('Task not found');return}
+  _sessEditState={taskId,subId:subId||'',idx,mode};
+  let session,defStart,defEnd;
+  if(mode==='edit'){
+    const item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;
+    if(!item){toast('Item not found');return}
+    session=(item.sessions||[])[idx];
+    if(!session){toast('Session not found');return}
+    if(!session.end){toast('Cannot edit a running session — stop the timer first');return}
+    defStart=_toLocalInput(session.start);defEnd=_toLocalInput(session.end);
+  } else {
+    // New session — default to a 30 min span ending now
+    const now=new Date(),thirty=new Date(now.getTime()-30*60000);
+    defStart=_toLocalInput(thirty.toISOString());defEnd=_toLocalInput(now.toISOString());
+  }
+  // Build subtask dropdown
+  let subOpts=`<option value=""${!subId?' selected':''}>${t.subtasks&&t.subtasks.length?'Main timer (parent)':'(no subtasks)'}</option>`;
+  (t.subtasks||[]).forEach(s=>{subOpts+=`<option value="${s.id}"${subId===s.id?' selected':''}>${esc(s.name)}</option>`});
+  // Modal disables attribution change for edit mode (keeps elapsed accounting simple)
+  const attrField=mode==='edit'?`<div class="modal-field"><label>Attributed to</label><div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--cream);font-size:.85rem;color:var(--text2)">${subId?esc((t.subtasks||[]).find(s=>s.id===subId)?.name||'?'):'Main timer (parent)'}</div></div>`:`<div class="modal-field"><label>Attributed to</label><select id="sessAttr">${subOpts}</select></div>`;
+  let html=`<h2>${mode==='edit'?'Edit Session':'Add Session'}</h2>
+    <div style="font-size:.8rem;color:var(--text3);margin-bottom:14px">Task: <strong>${esc(t.name)}</strong></div>
+    ${attrField}
+    <div class="modal-row"><div class="modal-field"><label>Start</label><input type="datetime-local" id="sessStart" value="${defStart}"></div>
+    <div class="modal-field"><label>End</label><input type="datetime-local" id="sessEnd" value="${defEnd}"></div></div>
+    <div id="sessError" style="color:#c53030;font-size:.78rem;display:none;padding:6px 10px;background:#fde8e8;border-radius:6px;margin-bottom:8px"></div>
+    <div class="modal-footer">
+      ${mode==='edit'?`<button class="btn-cancel" style="background:#fde8e8;color:#c53030;border-color:#fca5a5" onclick="deleteSessionEntry()">Delete</button>`:''}
+      <button class="btn-cancel" onclick="closeSessionEditor()">Cancel</button>
+      <button class="btn-save" onclick="saveSessionEntry()">${mode==='edit'?'Save Changes':'Add Session'}</button>
+    </div>`;
+  $('#sessionModal').innerHTML=html;
+  $('#sessionModalOverlay').classList.add('show');
+}
+function closeSessionEditor(){$('#sessionModalOverlay').classList.remove('show');_sessEditState=null}
+function _showSessError(msg){const e=$('#sessError');e.style.display='';e.textContent=msg}
+function saveSessionEntry(){
+  if(!_sessEditState)return;
+  const{taskId,subId,idx,mode}=_sessEditState;
+  const t=S.tasks.find(x=>x.id===taskId);if(!t){closeSessionEditor();return}
+  const startVal=$('#sessStart').value,endVal=$('#sessEnd').value;
+  if(!startVal||!endVal)return _showSessError('Both start and end times are required');
+  const startISO=_fromLocalInput(startVal),endISO=_fromLocalInput(endVal);
+  const startMs=new Date(startISO).getTime(),endMs=new Date(endISO).getTime();
+  if(isNaN(startMs)||isNaN(endMs))return _showSessError('Invalid date/time');
+  if(endMs<startMs)return _showSessError('End must be after start');
+  const newDur=endMs-startMs;
+  if(mode==='edit'){
+    const item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;
+    if(!item){closeSessionEditor();return}
+    const ss=(item.sessions||[])[idx];if(!ss){closeSessionEditor();return}
+    const oldDur=ss.duration||0;
+    ss.start=startISO;ss.end=endISO;ss.duration=newDur;ss.pausedMs=0; // manual edit clears pause data
+    item.elapsed=Math.max(0,(item.elapsed||0)+(newDur-oldDur));
+    toast('Session updated');
+  } else {
+    const targetSub=$('#sessAttr')?$('#sessAttr').value:'';
+    const item=targetSub?(t.subtasks||[]).find(s=>s.id===targetSub):t;
+    if(!item){closeSessionEditor();return}
+    item.sessions=item.sessions||[];
+    item.sessions.push({start:startISO,end:endISO,startElapsed:item.elapsed||0,duration:newDur,pausedMs:0});
+    item.elapsed=(item.elapsed||0)+newDur;
+    toast('Session added');
+  }
+  save();closeSessionEditor();renderAll();if(detailTaskId===taskId)openDetail(taskId,detailSource);
+}
+function deleteSessionEntry(){
+  if(!_sessEditState||_sessEditState.mode!=='edit')return;
+  const{taskId,subId,idx}=_sessEditState;
+  const t=S.tasks.find(x=>x.id===taskId);if(!t){closeSessionEditor();return}
+  const item=subId?(t.subtasks||[]).find(s=>s.id===subId):t;
+  if(!item){closeSessionEditor();return}
+  const ss=(item.sessions||[])[idx];if(!ss){closeSessionEditor();return}
+  const dur=ss.duration||0;
+  item.sessions.splice(idx,1);
+  item.elapsed=Math.max(0,(item.elapsed||0)-dur);
+  toast('Session deleted');
+  save();closeSessionEditor();renderAll();if(detailTaskId===taskId)openDetail(taskId,detailSource);
+}
+
 function finishSub(tid,sid){let t=S.tasks.find(x=>x.id===tid);if(!t)return;let s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;if(s.timerRunning&&timerTaskId===tid&&timerSubId===sid)stopAllTimers();s.finished=true;s.finishedAt=new Date().toISOString();s.timerRunning=false;S.subtaskHistory.unshift({id:gid(),parentId:tid,parentName:t.name,subId:sid,name:s.name,category:t.category||'',finishedAt:s.finishedAt,elapsed:s.elapsed||0});save();renderAll();if(detailTaskId===tid)openDetail(tid,detailSource)}
 function undoSub(tid,sid){let t=S.tasks.find(x=>x.id===tid);if(!t)return;let s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;s.finished=false;s.finishedAt='';let idx=S.subtaskHistory.findIndex(e=>e.parentId===tid&&e.subId===sid);if(idx>=0)S.subtaskHistory.splice(idx,1);save();renderAll();if(detailTaskId===tid)openDetail(tid,detailSource)}
 function confirmDel(id,src){showConfirm('Delete Task','Are you sure you want to permanently delete this task?',()=>deleteTask(id,src))}
@@ -1471,7 +1619,7 @@ function onDropWeek(e,ds,hr){e.preventDefault();let id=e.dataTransfer.getData('t
 let toastTm=null;function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show');if(toastTm)clearTimeout(toastTm);toastTm=setTimeout(()=>el.classList.remove('show'),2800)}
 
 // ===== KEYS =====
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#confirmOverlay').classList.contains('show'))closeConfirm();else if($('#modalOverlay').classList.contains('show'))closeModal();else if($('#detailPanel').classList.contains('show'))closeDetail()}if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();openNewTask()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#confirmOverlay').classList.contains('show'))closeConfirm();else if($('#sessionModalOverlay').classList.contains('show'))closeSessionEditor();else if($('#modalOverlay').classList.contains('show'))closeModal();else if($('#detailPanel').classList.contains('show'))closeDetail()}if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();openNewTask()}});
 
 // ===== INIT =====
 function init(){load();if(checkOverdueRecurring())save();buildNavBtns();renderAll();updateDirtyUI();startAutoPush();setInterval(()=>{if(checkOverdueRecurring())save()},3e5);setInterval(()=>{if(currentPage==='calendar')renderCalendar()},6e4);setInterval(()=>{if(fbUser)checkRemoteMeta()},30000)}
