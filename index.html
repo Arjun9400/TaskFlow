@@ -1076,7 +1076,7 @@ function save(){updateDailyTimeLogs();try{localStorage.setItem('taskflow_v9',JSO
 function load(){try{let r=localStorage.getItem('taskflow_v9')||localStorage.getItem('taskflow_v8');if(r)S=normState(JSON.parse(r));else S=blankState()}catch(e){S=blankState()}S.tasks.forEach(t=>{t.timerRunning=false;(t.subtasks||[]).forEach(s=>s.timerRunning=false)})}
 function exportData(){let b=new Blob([JSON.stringify({...S,_meta:{timestamp:Date.now(),version:9}},null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='sync.json';a.click();toast('Exported sync.json')}
 function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{S=normState(JSON.parse(r.result));save();renderAll();toast('Data imported!')}catch(er){toast('Import failed')}};r.readAsText(f);e.target.value=''}
-function updateDailyTimeLogs(){let td=todDS(),logs={};S.tasks.forEach(t=>{let el=getElapsed(t);if(el>0)logs[t.id]={name:t.name,elapsed:el,category:t.category};(t.subtasks||[]).forEach(s=>{let sel=getElapsed(s);if(sel>0)logs[t.id+':'+s.id]={name:t.name+' → '+s.name,elapsed:sel,category:t.category}})});if(Object.keys(logs).length)S.dailyTimeLogs[td]={...S.dailyTimeLogs[td],...logs}}
+function updateDailyTimeLogs(){let td=todDS(),logs={};S.tasks.forEach(t=>{let el=getElapsed(t);let hasSubs=(t.subtasks||[]).length>0;if(el>0){let label=hasSubs?(t.name+' (main)'):t.name;logs[t.id]={name:label,elapsed:el,category:t.category}}(t.subtasks||[]).forEach(s=>{let sel=getElapsed(s);if(sel>0)logs[t.id+':'+s.id]={name:t.name+' → '+s.name,elapsed:sel,category:t.category}})});if(Object.keys(logs).length)S.dailyTimeLogs[td]={...S.dailyTimeLogs[td],...logs}}
 
 // ===== TIMER =====
 function getElapsed(item){let e=item.elapsed||0;if(item.timerRunning&&timerStartTime)e+=Date.now()-timerStartTime;return e}
@@ -1141,8 +1141,8 @@ if((t.subtasks||[]).length){let dn=t.subtasks.filter(s=>s.finished).length;meta+
 if(isRunning)meta+=`<span class="tc-pill timer-running timer-display" data-tid="${t.id}" data-sid="${timerSubId||''}">${fmtT(totalEl)}</span>`;
 else if(totalEl>0&&!done)meta+=`<span class="tc-pill time timer-display" data-tid="${t.id}" data-sid="">${fmtT(totalEl)}</span>`;
 let acts='';
-if(!done){let hasSub=(t.subtasks||[]).length>0;
-if(!hasSub)acts+=`<button class="timer-btn${t.timerRunning?' running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${t.timerRunning?'Pause':'Start'} timer">${t.timerRunning?'⏸':'▶'}</button>`;
+if(!done){
+acts+=`<button class="timer-btn${t.timerRunning?' running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${t.timerRunning?'Pause':'Start'} timer">${t.timerRunning?'⏸':'▶'}</button>`;
 acts+=`<button class="finish-btn" onclick="event.stopPropagation();finishTask('${t.id}')" title="Mark complete">✓</button>`;
 acts+=`<button class="edit-btn" onclick="event.stopPropagation();openEditTask('${t.id}','${src}')" title="Edit task">✎</button>`}else{acts+=`<button class="finish-btn" onclick="event.stopPropagation();undoTask('${t.id}','${src}')" title="Restore">↩</button>`;acts+=`<button class="edit-btn" onclick="event.stopPropagation();openEditTask('${t.id}','${src}')" title="Edit task">✎</button>`}
 return`<div class="task-card${done?' done':''}" onclick="openDetail('${t.id}','${src}')" draggable="true" ondragstart="onDragStart(event,'${t.id}')"><div class="color-bar" style="background:${col}"></div><div class="tc-body"><div class="tc-name">${esc(t.name)}</div><div class="tc-meta">${meta}</div></div><div class="tc-actions">${acts}</div></div>`}
@@ -1435,7 +1435,7 @@ if(t.deletedAt)h+=`<div class="dp-meta-line"><span class="dpm-label">Deleted</sp
 if(t.droppedAt)h+=`<div class="dp-meta-line"><span class="dpm-label">Dropped</span>${new Date(t.droppedAt).toLocaleString()}</div>`;
 h+=`</div>`;
 if(t.description)h+=`<div class="dp-desc">${esc(t.description)}</div>`;
-if(isActive&&!(t.subtasks||[]).length){let el=getElapsed(t);h+=`<div class="dp-timer"><div class="dt-elapsed timer-display" data-tid="${t.id}" data-sid="">${fmtT(el)}</div><div class="dt-total">Total: ${fmtMs(el)}</div><button class="${t.timerRunning?'dt-pause':'dt-start'}" onclick="toggleTimer('${t.id}')">${t.timerRunning?'⏸ Pause':'▶ Start'}</button></div>`}
+if(isActive){let el=getElapsed(t);h+=`<div class="dp-timer"><div class="dt-elapsed timer-display" data-tid="${t.id}" data-sid="">${fmtT(el)}</div><div class="dt-total">Total: ${fmtMs(el)}</div><button class="${t.timerRunning?'dt-pause':'dt-start'}" onclick="toggleTimer('${t.id}')">${t.timerRunning?'⏸ Pause':'▶ Start'}</button></div>`}
 if((t.subtasks||[]).length){h+=`<div class="dp-subtasks"><div style="font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Subtasks</div>`;
 let pend=t.subtasks.filter(s=>!s.finished),fin=t.subtasks.filter(s=>s.finished);
 pend.forEach(s=>{let sel=getElapsed(s);h+=`<div class="dp-subtask"><span class="dps-name">${esc(s.name)}</span><span class="dps-timer timer-display" data-tid="${t.id}" data-sid="${s.id}">${fmtT(sel)}</span>${isActive?`<button onclick="toggleTimer('${t.id}','${s.id}')">${s.timerRunning?'⏸':'▶'}</button><button onclick="finishSub('${t.id}','${s.id}')">✓</button>`:''}</div>`});
