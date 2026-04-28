@@ -447,13 +447,11 @@ button{cursor:pointer;border:none;background:none}
 .sdot.green{background:#4ade80} .sdot.orange{background:#fb923c;animation:pulseDot 1.2s infinite}
 .sdot.red{background:#f87171} .sdot.grey{background:var(--stext3)}
 
-/* DIRTY / UNPUSHED INDICATORS — unmissable red */
+/* DIRTY / UNPUSHED INDICATORS — unmissable red (topbar cloud stays calm) */
 @keyframes dirtyPulseRing{0%,100%{box-shadow:0 0 0 0 rgba(229,62,62,.7)}50%{box-shadow:0 0 0 6px rgba(229,62,62,0)}}
 @keyframes dirtyTextBlink{0%,100%{opacity:1}50%{opacity:.55}}
 body.has-unpushed .sb-sync-btn.sync-push{background:rgba(229,62,62,.28)!important;color:#ffb0b0!important;border-color:rgba(229,62,62,.6)!important;font-weight:700;animation:dirtyPulseRing 1.8s ease-in-out infinite}
 body.has-unpushed #mPushBtn{background:#fde8e8!important;color:#c53030!important;border-color:#e53e3e!important;font-weight:700;animation:dirtyPulseRing 1.8s ease-in-out infinite}
-body.has-unpushed .topbar-cloud{background:#fde8e8;border-color:#e53e3e;color:#c53030;animation:dirtyPulseRing 1.8s ease-in-out infinite}
-body.has-unpushed .topbar-cloud .tc-dot{background:#e53e3e!important;display:block;width:9px;height:9px;animation:dirtyTextBlink 1.2s ease-in-out infinite}
 body.has-unpushed .sync-status-bar #syncText{color:#ff8585;font-weight:600}
 body.has-unpushed .sync-status-bar .sdot.red{background:#e53e3e;animation:dirtyTextBlink 1.2s ease-in-out infinite}
 @keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.4}}
@@ -651,6 +649,8 @@ let _syncBusy=false;
 // ===== DIRTY TRACKING & AUTO-PUSH =====
 let isDirty=localStorage.getItem('tf_dirty')==='1';
 let _autoPushTimer=null;
+let _autoPushIntervalStart=0;
+let _countdownTimer=null;
 const AUTO_PUSH_INTERVAL_MS=2*60*1000; // 2 minutes
 function markDirty(){
   if(!isDirty){isDirty=true;localStorage.setItem('tf_dirty','1')}
@@ -660,18 +660,31 @@ function markClean(){
   if(isDirty){isDirty=false;localStorage.setItem('tf_dirty','0')}
   updateDirtyUI();
 }
+function _fmtCountdown(){
+  const ms=(_autoPushIntervalStart+AUTO_PUSH_INTERVAL_MS)-Date.now();
+  if(ms<=0)return'pushing now…';
+  const s=Math.ceil(ms/1000),m=Math.floor(s/60),sec=s%60;
+  return m>0?(m+'m '+String(sec).padStart(2,'0')+'s'):(sec+'s');
+}
+function _ensureCountdown(){
+  const need=isDirty&&!!fbUser&&!_syncBusy;
+  if(need&&!_countdownTimer)_countdownTimer=setInterval(updateDirtyUI,1000);
+  else if(!need&&_countdownTimer){clearInterval(_countdownTimer);_countdownTimer=null}
+}
 function updateDirtyUI(){
   const showRed=isDirty&&!!fbUser;
   document.body.classList.toggle('has-unpushed',showRed);
-  // Only override the status line when we're not in the middle of a sync op
+  _ensureCountdown();
+  // Topbar cloud icon intentionally NOT changed to red — it stays calm.
   if(showRed&&!_syncBusy){
-    setSyncStatus('● Unpushed changes — auto-push in ≤2m','red');
-    setCloudDot('red');
+    if(!getEncPwd())setSyncStatus('● Unpushed — set sync password','red');
+    else setSyncStatus('● Unpushed · auto-push '+_fmtCountdown(),'red');
   }
 }
 function startAutoPush(){
   if(_autoPushTimer)clearInterval(_autoPushTimer);
-  _autoPushTimer=setInterval(autoPushTick,AUTO_PUSH_INTERVAL_MS);
+  _autoPushIntervalStart=Date.now();
+  _autoPushTimer=setInterval(()=>{_autoPushIntervalStart=Date.now();autoPushTick()},AUTO_PUSH_INTERVAL_MS);
 }
 function resetAutoPushTimer(){startAutoPush()}
 async function autoPushTick(){
@@ -854,7 +867,7 @@ async function checkRemoteMeta(autoSync=false){
         showOosyncBanner();
         setSyncStatus('⚠ Cloud newer','orange');
       }
-    }else if(remoteTs>0){
+    }else if(remoteTs>0&&!isDirty){
       setSyncStatus('✓ In sync','green');
     }
   }catch(e){console.warn('meta check failed',e)}
@@ -913,7 +926,7 @@ async function manualPush(opts){
       markClean();resetAutoPushTimer();
       const t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       setSyncStatus((silent?'⟳ Auto-pushed ':'↑ Pushed ')+t,'green');
-      if(!silent)toast('Pushed to cloud ↑');
+      toast(silent?'⟳ Auto-pushed to cloud':'Pushed to cloud ↑');
     }catch(e){
       setSyncStatus(silent?'Auto-push failed':'Push failed','red');
       if(!silent)toast('Push failed: '+e.message);
