@@ -356,6 +356,19 @@ button{cursor:pointer;border:none;background:none}
 .modal-subtask input{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--cream);font-size:.82rem}
 .modal-subtask button{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:.7rem;cursor:pointer}
 .modal-subtask button:hover{background:var(--sand)}
+/* Scheduled subtask row in edit modal */
+.modal-subtask.scheduled{background:#fbfaf6;border:1px dashed var(--border);padding:4px 6px;border-radius:6px}
+.modal-subtask.scheduled input{background:transparent}
+.mss-badge{font-family:var(--font-mono);font-size:.65rem;color:var(--text2);padding:2px 7px;background:#fff;border-radius:4px;border:1px solid var(--border);white-space:nowrap;flex-shrink:0}
+/* Inline "Schedule session" button + form */
+.modal-add-sess-btn{display:block;width:100%;padding:7px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:.72rem;cursor:pointer;margin-top:6px;transition:all .15s}
+.modal-add-sess-btn:hover{background:var(--cream);color:var(--ink);border-style:solid}
+.modal-add-sess-form{margin-top:6px;padding:10px;background:#fbfaf6;border:1px dashed var(--border);border-radius:8px}
+.modal-add-sess-form .mass-title{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px}
+.modal-add-sess-form .mass-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.modal-add-sess-form input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:.82rem;width:100%;box-sizing:border-box}
+.modal-add-sess-form .mass-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.modal-add-sess-form .mass-actions button{padding:5px 14px;border-radius:6px;font-family:var(--font-mono);font-size:.72rem}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
 .modal-footer button{padding:9px 22px;border-radius:8px;font-family:var(--font-mono);font-size:.8rem;transition:all .15s}
 .btn-cancel{background:var(--cream);border:1px solid var(--border);color:var(--text2)}
@@ -1664,8 +1677,30 @@ function renderModal(t){
 <div class="modal-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="mProject"${t.isProject?' checked':''}> <strong>Project</strong> — allow scheduling separate work sessions on this task</label></div>
 <div class="modal-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="mHide"${t.hideFromCalendar?' checked':''}> Hide from calendar</label></div>
 <div class="modal-field"><label>Subtasks</label><div id="mSubs">`;
-  (t.subtasks||[]).forEach(s=>{h+=`<div class="modal-subtask"><input type="text" value="${esc(s.name)}" data-subid="${s.id}"><button onclick="this.parentElement.remove()">×</button></div>`});
-  h+=`</div><div class="modal-subtask" style="margin-top:4px"><input type="text" id="mNewSub" placeholder="Add subtask..." onkeydown="if(event.key==='Enter')addMSub()"><button onclick="addMSub()">+</button></div></div>
+  (t.subtasks||[]).forEach(s=>{
+    const isScheduled=s.scheduledDate&&!s.finished;
+    let badge='';
+    if(isScheduled){
+      const dlabel=relDate(subDate(s));
+      const tlabel=subTime(s)?' '+fmt12(subTime(s)):'';
+      badge=`<span class="mss-badge" title="Scheduled: ${esc(subDate(s))}${esc(tlabel)}">📅 ${esc(dlabel)}${esc(tlabel)}</span>`;
+    }
+    h+=`<div class="modal-subtask${isScheduled?' scheduled':''}"><input type="text" value="${esc(s.name)}" data-subid="${s.id}"${isScheduled?` data-scheduled="${esc(s.scheduledDate)}"`:''}>${badge}<button onclick="removeMSubRow(this,'${s.id}')">×</button></div>`;
+  });
+  h+=`</div><div class="modal-subtask" style="margin-top:4px"><input type="text" id="mNewSub" placeholder="Add subtask..." onkeydown="if(event.key==='Enter')addMSub()"><button onclick="addMSub()">+</button></div>
+<button type="button" class="modal-add-sess-btn" id="mAddSessBtn" onclick="showAddSessionForm()">🎯 + Schedule a sub-session</button>
+<div class="modal-add-sess-form" id="mAddSessForm" style="display:none">
+  <div class="mass-title">New scheduled session</div>
+  <input type="text" id="mAsName" placeholder="Session title (e.g. 'Work on chapter 3')..." onkeydown="if(event.key==='Enter'){event.preventDefault();confirmAddSession()}">
+  <div class="mass-row">
+    <input type="date" id="mAsDate" value="${todDS()}">
+    <input type="time" id="mAsTime" placeholder="Time (optional)">
+  </div>
+  <div class="mass-actions">
+    <button class="btn-cancel" onclick="hideAddSessionForm()">Cancel</button>
+    <button class="btn-save" onclick="confirmAddSession()">Add</button>
+  </div>
+</div></div>
 <div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveTask()">${isEdit?'Update Task':'Save Task'}</button></div>`;
   $('#taskModal').innerHTML=h;$('#modalOverlay').classList.add('show');
   $('#mCat').onchange=function(){let p=$('#mCatPreview');if(this.value){p.style.display='block';p.style.background=getCatColor(this.value)}else p.style.display='none'};
@@ -1746,7 +1781,58 @@ function updateRecUI(){let type=$('#mRec').value,extra='',explain='';
 let rec=(editingTaskId&&S[editingSource]?S[editingSource].find(t=>t.id===editingTaskId):null);rec=rec?rec.recurring:{every:2,weekday:0,monthday:1};
 switch(type){case'every_n':extra=`<input type="number" id="mRecEvery" value="${rec.every||2}" min="2" style="width:80px"> days`;explain='Repeats every N days';break;case'weekday':extra=`<select id="mRecWD">${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d,i)=>`<option value="${i}"${rec.weekday===i?' selected':''}>${d}</option>`).join('')}</select>`;explain='Repeats weekly';break;case'monthday':extra=`Day <input type="number" id="mRecMD" value="${rec.monthday||1}" min="1" max="31" style="width:60px"> of each month`;explain='Repeats monthly';break;case'daily':explain='Repeats every day';break}
 $('#mRecX').innerHTML=extra;$('#mRecE').textContent=explain}
-function addMSub(){let inp=$('#mNewSub'),name=inp.value.trim();if(!name)return;let d=document.createElement('div');d.className='modal-subtask';d.innerHTML=`<input type="text" value="${esc(name)}" data-subid="${gid()}"><button onclick="this.parentElement.remove()">×</button>`;$('#mSubs').appendChild(d);inp.value='';inp.focus()}
+function addMSub(){let inp=$('#mNewSub'),name=inp.value.trim();if(!name)return;let id=gid();let d=document.createElement('div');d.className='modal-subtask';d.innerHTML=`<input type="text" value="${esc(name)}" data-subid="${id}"><button onclick="removeMSubRow(this,'${id}')">×</button>`;$('#mSubs').appendChild(d);inp.value='';inp.focus()}
+// Remove a subtask row from the edit modal — prompts for confirmation if the sub is an unfinished scheduled session
+function removeMSubRow(btn,subId){
+  const row=btn.parentElement;
+  // Only need to confirm for existing (saved) scheduled subs — newly added rows have no underlying record yet
+  if(editingTaskId&&subId){
+    const t=S[editingSource]?S[editingSource].find(x=>x.id===editingTaskId):null;
+    if(t){
+      const s=(t.subtasks||[]).find(x=>x.id===subId);
+      if(s&&s.scheduledDate&&!s.finished){
+        const when=relDate(subDate(s))+(subTime(s)?' '+fmt12(subTime(s)):'');
+        showConfirm('Delete Scheduled Session?',`"${esc(s.name)}" is scheduled for ${esc(when)}.<br>Are you sure you want to remove it?`,()=>row.remove());
+        return;
+      }
+    }
+  }
+  row.remove();
+}
+// Inline "schedule a session" form inside the task modal
+function showAddSessionForm(){
+  const f=$('#mAddSessForm'),b=$('#mAddSessBtn');
+  if(!f||!b)return;
+  f.style.display='block';b.style.display='none';
+  // Default date to today, time empty
+  const d=$('#mAsDate');if(d&&!d.value)d.value=todDS();
+  const n=$('#mAsName');if(n)setTimeout(()=>n.focus(),50);
+}
+function hideAddSessionForm(){
+  const f=$('#mAddSessForm'),b=$('#mAddSessBtn');
+  if(!f||!b)return;
+  f.style.display='none';b.style.display='block';
+  const n=$('#mAsName');if(n)n.value='';
+  const tm=$('#mAsTime');if(tm)tm.value='';
+}
+function confirmAddSession(){
+  const name=($('#mAsName').value||'').trim();
+  if(!name){toast('Session title required');return}
+  const dateV=$('#mAsDate').value;
+  const timeV=$('#mAsTime').value;
+  if(!dateV){toast('Date required');return}
+  const sched=timeV?dateV+'T'+timeV:dateV;
+  const id=gid();
+  const dlabel=relDate(dateV)+(timeV?' '+fmt12(timeV):'');
+  const row=document.createElement('div');
+  row.className='modal-subtask scheduled';
+  row.innerHTML=`<input type="text" value="${esc(name)}" data-subid="${id}" data-scheduled="${esc(sched)}"><span class="mss-badge" title="Scheduled: ${esc(sched)}">📅 ${esc(dlabel)}</span><button onclick="removeMSubRow(this,'${id}')">×</button>`;
+  // Insert before the "Add subtask…" row so scheduled sessions appear at the bottom of the saved list
+  const subs=$('#mSubs');
+  if(subs)subs.appendChild(row);
+  hideAddSessionForm();
+  toast('Session added — Save Task to keep it');
+}
 function saveTask(){let name=$('#mName').value.trim();if(!name){toast('Name is required');return}
 let date=$('#mDate').value,time=$('#mTime').value,sched=time?date+'T'+time:date;
 let durV=$('#mDur').value,dur=durV==='custom'?(+$('#mDurC').value||0):+durV;
@@ -1754,18 +1840,16 @@ let recT=$('#mRec').value,rec={type:recT,every:1,weekday:0,monthday:1};
 if(recT==='every_n')rec.every=+($('#mRecEvery')?$('#mRecEvery').value:2)||2;
 if(recT==='weekday')rec.weekday=+($('#mRecWD')?$('#mRecWD').value:0);
 if(recT==='monthday')rec.monthday=+($('#mRecMD')?$('#mRecMD').value:1);
-let newSubs=[];$$('#mSubs .modal-subtask input').forEach(inp=>{let n=inp.value.trim();if(n)newSubs.push({id:inp.dataset.subid||gid(),name:n})});
+let newSubs=[];$$('#mSubs .modal-subtask input').forEach(inp=>{let n=inp.value.trim();if(n)newSubs.push({id:inp.dataset.subid||gid(),name:n,scheduledDate:inp.dataset.scheduled||''})});
 let isProj=$('#mProject')?$('#mProject').checked:false;
 if(editingTaskId){let t=S[editingSource].find(x=>x.id===editingTaskId);if(t){t.name=name;t.description=$('#mDesc').value;t.scheduledDate=sched;t.dueDate=$('#mDue').value||'';t.category=$('#mCat').value;t.label=$('#mLabel').value;t.estDuration=dur;t.weight=+$('#mWeight').value||1;t.recurring=rec;t.hideFromCalendar=$('#mHide').checked;t.isProject=isProj;
 let old=t.subtasks||[];
-// Preserve existing subtasks fully (including scheduledDate, elapsed, sessions, finished state)
-t.subtasks=newSubs.map(ns=>{let ex=old.find(o=>o.id===ns.id);if(ex){ex.name=ns.name;return ex}return{id:ns.id,name:ns.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:'',originalScheduledDate:'',sessions:[]}});
+// Preserve existing subtasks fully (including scheduledDate, elapsed, sessions, finished state); new rows get a scheduledDate if the inline session form added one
+t.subtasks=newSubs.map(ns=>{let ex=old.find(o=>o.id===ns.id);if(ex){ex.name=ns.name;return ex}return{id:ns.id,name:ns.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:ns.scheduledDate||'',originalScheduledDate:'',sessions:[]}});
 // Re-attach finished subtasks that were removed from the input list (preserve history continuity)
 old.filter(o=>o.finished&&!newSubs.find(n=>n.id===o.id)).forEach(o=>t.subtasks.push(o));
-// Re-attach scheduled but unfinished subtasks that were removed (don't lose their schedule)
-old.filter(o=>!o.finished&&o.scheduledDate&&!newSubs.find(n=>n.id===o.id)).forEach(o=>t.subtasks.push(o));
 }toast('Task updated')}
-else{S.tasks.push(normTask({name,description:$('#mDesc').value,scheduledDate:sched,dueDate:$('#mDue').value||'',category:$('#mCat').value,label:$('#mLabel').value,estDuration:dur,weight:+$('#mWeight').value||1,recurring:rec,hideFromCalendar:$('#mHide').checked,isProject:isProj,subtasks:newSubs.map(s=>({id:s.id,name:s.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:'',originalScheduledDate:'',sessions:[]}))}));toast('Task created')}
+else{S.tasks.push(normTask({name,description:$('#mDesc').value,scheduledDate:sched,dueDate:$('#mDue').value||'',category:$('#mCat').value,label:$('#mLabel').value,estDuration:dur,weight:+$('#mWeight').value||1,recurring:rec,hideFromCalendar:$('#mHide').checked,isProject:isProj,subtasks:newSubs.map(s=>({id:s.id,name:s.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:s.scheduledDate||'',originalScheduledDate:'',sessions:[]}))}));toast('Task created')}
 save();closeModal();renderAll()}
 function closeModal(){$('#modalOverlay').classList.remove('show');editingTaskId=null;editingSub=null;_modalMode='task'}
 
