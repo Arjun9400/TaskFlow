@@ -139,6 +139,29 @@ button{cursor:pointer;border:none;background:none}
 .tc-actions .timer-btn.running{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
 .task-card.done{opacity:.5}
 .task-card.done .tc-name{text-decoration:line-through}
+/* Sub-session card variant */
+.task-card.subtask-card{background:#fbfaf6;border-style:dashed}
+.task-card.subtask-card .color-bar{opacity:.7}
+.tc-pill.subtask-of{background:#f0ece4;color:var(--text2);border:1px solid var(--border);display:inline-flex;align-items:center;gap:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-pill.subtask-of:hover{background:var(--sand);color:#fff}
+/* Modal type toggle */
+.modal-type-toggle{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--cream)}
+.mtt-btn{flex:1;padding:9px 12px;font-family:var(--font-mono);font-size:.75rem;color:var(--text2);background:transparent;transition:all .15s;border-right:1px solid var(--border)}
+.mtt-btn:last-child{border-right:none}
+.mtt-btn.active{background:var(--rust);color:#fff}
+.mtt-btn:disabled{opacity:.4;cursor:not-allowed}
+.mtt-btn:not(.active):not(:disabled):hover{background:var(--sand);color:#fff}
+/* Project picker */
+.proj-picker{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:6px}
+.proj-pick-item{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:.82rem;transition:background .15s}
+.proj-pick-item:last-child{border-bottom:none}
+.proj-pick-item:hover{background:var(--cream)}
+.proj-pick-item.selected{background:var(--rust-pale)}
+.proj-pick-item .pp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.proj-pick-item .pp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-pick-empty{padding:10px;color:var(--text3);font-size:.78rem;text-align:center;font-style:italic}
+/* Calendar sub-chip indicator */
+.cal-chip.sub-chip{border-left-style:dashed!important}
 
 /* EMPTY STATE */
 .empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
@@ -1064,6 +1087,11 @@ const shortMonth=d=>['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const relDate=ds=>{if(ds===todDS())return'Today';if(ds===tomorrowDS())return'Tmrw';let d=parseDS(ds);return d?`${d.getDate()} ${shortMonth(d)}`:''};
 const taskDate=t=>t.scheduledDate?t.scheduledDate.slice(0,10):'';
 const taskTime=t=>t.scheduledDate&&t.scheduledDate.length>10?t.scheduledDate.slice(11,16):'';
+// Sub-session date/time helpers
+const subDate=s=>s.scheduledDate?s.scheduledDate.slice(0,10):'';
+const subTime=s=>s.scheduledDate&&s.scheduledDate.length>10?s.scheduledDate.slice(11,16):'';
+// Returns flat list of {parent, sub} for all active (parent not finished, sub not finished, sub scheduled) subtasks matching predicate
+const getScheduledSubs=pred=>{const out=[];S.tasks.forEach(t=>{if(t.finished)return;(t.subtasks||[]).forEach(s=>{if(s.finished)return;if(!s.scheduledDate)return;if(!pred||pred(s,t))out.push({parent:t,sub:s})})});return out};
 const getCatColor=name=>{let c=S.categories.find(c=>c.name===name);return c?c.color:'#999'};
 const findAnyTask=id=>S.tasks.find(t=>t.id===id)||S.history.find(t=>t.id===id)||S.deletedHistory.find(t=>t.id===id)||S.droppedHistory.find(t=>t.id===id)||null;
 const getLabelObj=id=>S.labels.find(l=>l.id===id);
@@ -1072,10 +1100,10 @@ const getLabelObj=id=>S.labels.find(l=>l.id===id);
 const DEF_CATS=[{name:'Work',color:'#4a6fa5',weight:1},{name:'Personal',color:'#c0542e',weight:1},{name:'Health',color:'#2d8a4e',weight:1},{name:'Learning',color:'#7c5ab8',weight:1},{name:'Creative',color:'#c57600',weight:1}];
 const DEF_LABELS=[{id:'urgent',name:'Urgent',color:'#e53e3e'},{id:'high',name:'High',color:'#dd6b20'},{id:'medium',name:'Medium',color:'#718096'},{id:'low',name:'Low',color:'#38a169'}];
 const blankState=()=>({tasks:[],history:[],deletedHistory:[],droppedHistory:[],subtaskHistory:[],dailyTimeLogs:{},categories:DEF_CATS.map(c=>({...c})),labels:DEF_LABELS.map(l=>({...l}))});
-const normSub=s=>({id:s.id||gid(),name:s.name||'',elapsed:s.elapsed||0,timerRunning:false,finished:!!s.finished,finishedAt:s.finishedAt||'',sessions:(s.sessions||[]).map(_normSess)});
+const normSub=s=>({id:s.id||gid(),name:s.name||'',elapsed:s.elapsed||0,timerRunning:false,finished:!!s.finished,finishedAt:s.finishedAt||'',scheduledDate:s.scheduledDate||'',originalScheduledDate:s.originalScheduledDate||'',sessions:(s.sessions||[]).map(_normSess)});
 const _normSess=ss=>({start:ss.start||'',end:ss.end||null,startElapsed:ss.startElapsed||0,duration:ss.duration||0,pausedMs:ss.pausedMs||0});
-const normTask=t=>({id:t.id||gid(),name:t.name||'',description:t.description||'',category:t.category||'',label:t.label||'',scheduledDate:t.scheduledDate||'',originalScheduledDate:t.originalScheduledDate||'',dueDate:t.dueDate||'',recurring:t.recurring||{type:'none',every:1,weekday:0,monthday:1},estDuration:t.estDuration||0,weight:t.weight||1,hideFromCalendar:!!t.hideFromCalendar,elapsed:t.elapsed||0,timerRunning:false,finished:!!t.finished,finishedAt:t.finishedAt||'',createdAt:t.createdAt||new Date().toISOString(),sessions:(t.sessions||[]).map(_normSess),subtasks:(t.subtasks||[]).map(normSub),deletedAt:t.deletedAt||'',droppedAt:t.droppedAt||''});
-const normState=s=>{let st={...blankState(),...s};st.tasks=(st.tasks||[]).map(normTask);st.history=(st.history||[]).map(normTask);st.deletedHistory=(st.deletedHistory||[]).map(normTask);st.droppedHistory=(st.droppedHistory||[]).map(normTask);st.subtaskHistory=(st.subtaskHistory||[]).map(e=>({id:e.id||gid(),parentId:e.parentId||'',parentName:e.parentName||'',subId:e.subId||'',name:e.name||'',category:e.category||'',finishedAt:e.finishedAt||'',elapsed:e.elapsed||0}));if(!st.categories||!st.categories.length)st.categories=DEF_CATS.map(c=>({...c}));if(!st.labels)st.labels=DEF_LABELS.map(l=>({...l}));st.dailyTimeLogs=st.dailyTimeLogs||{};return st};
+const normTask=t=>({id:t.id||gid(),name:t.name||'',description:t.description||'',category:t.category||'',label:t.label||'',scheduledDate:t.scheduledDate||'',originalScheduledDate:t.originalScheduledDate||'',dueDate:t.dueDate||'',recurring:t.recurring||{type:'none',every:1,weekday:0,monthday:1},estDuration:t.estDuration||0,weight:t.weight||1,hideFromCalendar:!!t.hideFromCalendar,isProject:!!t.isProject,elapsed:t.elapsed||0,timerRunning:false,finished:!!t.finished,finishedAt:t.finishedAt||'',createdAt:t.createdAt||new Date().toISOString(),sessions:(t.sessions||[]).map(_normSess),subtasks:(t.subtasks||[]).map(normSub),deletedAt:t.deletedAt||'',droppedAt:t.droppedAt||''});
+const normState=s=>{let st={...blankState(),...s};st.tasks=(st.tasks||[]).map(normTask);st.history=(st.history||[]).map(normTask);st.deletedHistory=(st.deletedHistory||[]).map(normTask);st.droppedHistory=(st.droppedHistory||[]).map(normTask);st.subtaskHistory=(st.subtaskHistory||[]).map(e=>({id:e.id||gid(),parentId:e.parentId||'',parentName:e.parentName||'',subId:e.subId||'',name:e.name||'',category:e.category||'',finishedAt:e.finishedAt||'',elapsed:e.elapsed||0,scheduledDate:e.scheduledDate||''}));if(!st.categories||!st.categories.length)st.categories=DEF_CATS.map(c=>({...c}));if(!st.labels)st.labels=DEF_LABELS.map(l=>({...l}));st.dailyTimeLogs=st.dailyTimeLogs||{};return st};
 let S=blankState();
 
 // ===== APP STATE =====
@@ -1084,6 +1112,8 @@ let CF='',LF='',CAL_CF='',CAL_LF='',CAL_SHOW='';
 let searchQ='',sortMode='default',dateFilter='all',historyTab='completed';
 let showCompletedTasks=false,calFitScreen=false;
 let editingTaskId=null,editingSource='tasks',detailTaskId=null,detailSource='tasks';
+let _modalMode='task'; // 'task' or 'subsession' — only relevant for new (not edit)
+let editingSub=null; // {parentId, subId} when editing a scheduled subtask
 let timerInterval=null,timerStartTime=null,timerTaskId=null,timerSubId=null;
 let dragTaskId=null;
 const NAV_ITEMS=[{id:'today',icon:'☀️',label:'Today'},{id:'calendar',icon:'📅',label:'Calendar'},{id:'alltasks',icon:'✦',label:'All Tasks'},{id:'deadlines',icon:'🗓',label:'Deadlines'},{id:'history',icon:'⊙',label:'History'},{id:'categories',icon:'◆',label:'Categories'}];
@@ -1147,22 +1177,101 @@ function renderPage(p){switch(p){case'today':renderToday();break;case'calendar':
 function buildNavBtns(){let h='';NAV_ITEMS.forEach((n,i)=>{h+=`<button class="sb-btn${i===0?' active':''}" onclick="nav('${n.id}')"><span class="icon">${n.icon}</span>${n.label}${n.id==='today'?'<span class="sb-badge" id="todayBadge" style="display:none">0</span>':''}</button>`});$('#sbNav').innerHTML=h;let mh='';NAV_ITEMS.forEach((n,i)=>{mh+=`<button${i===0?' class="active"':''} onclick="nav('${n.id}')"><span class="mn-icon">${n.icon}</span>${n.label}</button>`});$('#mobileNav').innerHTML=mh}
 
 // ===== SIDEBAR =====
-function renderSidebar(){let tc=S.tasks.filter(t=>!t.finished&&taskDate(t)===todDS()).length;let b=$('#todayBadge');if(b){if(tc>0){b.style.display='inline';b.textContent=tc}else b.style.display='none'}let up=S.tasks.filter(t=>!t.finished&&taskDate(t)>=todDS()).sort((a,b)=>(a.scheduledDate||'').localeCompare(b.scheduledDate||'')).slice(0,14);let h='';up.forEach(t=>{h+=`<div class="sb-upcoming-item" onclick="openDetail('${t.id}','tasks')"><span class="dot" style="background:${getCatColor(t.category)}"></span><span class="uname">${esc(t.name)}</span><span class="udate">${relDate(taskDate(t))}</span></div>`});if(!up.length)h='<div style="padding:8px;font-size:.75rem;color:var(--stext3)">No upcoming tasks</div>';$('#sbUpcoming').innerHTML=h}
+function renderSidebar(){
+  let td=todDS();
+  let tc=S.tasks.filter(t=>!t.finished&&taskDate(t)===td).length;
+  let scTodaySubs=getScheduledSubs((s,t)=>subDate(s)===td).length;
+  tc+=scTodaySubs;
+  let b=$('#todayBadge');if(b){if(tc>0){b.style.display='inline';b.textContent=tc}else b.style.display='none'}
+  // Build combined upcoming list: tasks + scheduled subs, sorted by date
+  let upItems=[];
+  S.tasks.filter(t=>!t.finished&&taskDate(t)>=td).forEach(t=>{
+    upItems.push({kind:'task',sortKey:t.scheduledDate||'',name:t.name,date:taskDate(t),color:getCatColor(t.category),tid:t.id,sid:''});
+  });
+  getScheduledSubs((s,t)=>subDate(s)>=td).forEach(({sub,parent})=>{
+    upItems.push({kind:'sub',sortKey:sub.scheduledDate||'',name:sub.name,date:subDate(sub),color:getCatColor(parent.category),tid:parent.id,sid:sub.id,parentName:parent.name});
+  });
+  upItems.sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+  upItems=upItems.slice(0,14);
+  let h='';
+  upItems.forEach(it=>{
+    let nm=it.kind==='sub'?`↳ ${esc(it.name)}`:esc(it.name);
+    let title=it.kind==='sub'?` title="Session on: ${esc(it.parentName)}"`:'';
+    h+=`<div class="sb-upcoming-item" onclick="openDetail('${it.tid}','tasks')"${title}><span class="dot" style="background:${it.color}"></span><span class="uname">${nm}</span><span class="udate">${relDate(it.date)}</span></div>`;
+  });
+  if(!upItems.length)h='<div style="padding:8px;font-size:.75rem;color:var(--stext3)">No upcoming tasks</div>';
+  $('#sbUpcoming').innerHTML=h;
+}
 
 // ===== TODAY =====
-function renderToday(){let td=todDS();let todayT=S.tasks.filter(t=>!t.finished&&taskDate(t)===td);let overdue=S.tasks.filter(t=>!t.finished&&taskDate(t)&&taskDate(t)<td);let doneT=S.history.filter(t=>t.finishedAt&&t.finishedAt.slice(0,10)===td);let est=[...todayT,...overdue].reduce((a,t)=>a+(t.estDuration||0),0);let tl=S.dailyTimeLogs[td]||{};let tw=Object.values(tl).reduce((a,e)=>a+(e.elapsed||0),0);
-let h=`<div class="page-header"><h1>${dayName(TODAY)}, ${monthName(TODAY)} ${TODAY.getDate()}</h1><div class="subtitle">${TODAY.getFullYear()} — Here's what's on your plate</div></div>`;
-h+=`<div class="stats-row"><div class="stat-card accent"><div class="stat-label">Due today</div><div class="stat-value">${todayT.length}</div></div><div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value">${overdue.length}</div></div><div class="stat-card"><div class="stat-label">Done today</div><div class="stat-value">${doneT.length}</div></div>`;
-if(est>0)h+=`<div class="stat-card"><div class="stat-label">Est. work</div><div class="stat-value">${fmtDur(est)}</div></div>`;
-if(tw>0)h+=`<div class="stat-card green"><div class="stat-label">Time worked</div><div class="stat-value">${fmtMs(tw)}</div></div>`;
-h+=`</div>`;
-if(overdue.length)h+=`<div class="overdue-banner"><span>⚠️ ${overdue.length} overdue task${overdue.length>1?'s':''}</span><button class="ob-btn" onclick="moveAllToToday()">Move all to today</button></div>`;
-if(overdue.length){h+=`<div class="section-title">⚠️ Overdue (${overdue.length})</div>`;overdue.sort((a,b)=>(a.scheduledDate||'').localeCompare(b.scheduledDate||'')).forEach(t=>h+=taskCard(t))}
-h+=`<div class="section-title">📅 Today (${todayT.length})</div>`;
-if(todayT.length){let timed=todayT.filter(t=>taskTime(t)).sort((a,b)=>taskTime(a).localeCompare(taskTime(b)));let allday=todayT.filter(t=>!taskTime(t));[...timed,...allday].forEach(t=>h+=taskCard(t))}else h+=`<div class="empty-state"><div class="es-icon">✨</div><div class="es-text">Nothing scheduled for today</div><div class="es-sub">Enjoy the free time, or add a task!</div></div>`;
-if(doneT.length){h+=`<div class="section-title">✅ Completed Today (${doneT.length})</div>`;doneT.forEach(t=>h+=taskCard(t,true,'history'))}
-$('#pageToday').innerHTML=h}
-function moveAllToToday(){let td=todDS();S.tasks.forEach(t=>{if(!t.finished&&taskDate(t)&&taskDate(t)<td){if(!t.originalScheduledDate)t.originalScheduledDate=t.scheduledDate;let time=taskTime(t);t.scheduledDate=time?td+'T'+time:td}});save();renderAll();toast('Moved all to today')}
+function renderToday(){
+  let td=todDS();
+  let todayT=S.tasks.filter(t=>!t.finished&&taskDate(t)===td);
+  let overdueT=S.tasks.filter(t=>!t.finished&&taskDate(t)&&taskDate(t)<td);
+  let todayS=getScheduledSubs((s,t)=>subDate(s)===td);
+  let overdueS=getScheduledSubs((s,t)=>subDate(s)&&subDate(s)<td);
+  let doneT=S.history.filter(t=>t.finishedAt&&t.finishedAt.slice(0,10)===td);
+  let doneS=S.subtaskHistory.filter(e=>e.finishedAt&&e.finishedAt.slice(0,10)===td);
+  let est=[...todayT,...overdueT].reduce((a,t)=>a+(t.estDuration||0),0);
+  let tl=S.dailyTimeLogs[td]||{};let tw=Object.values(tl).reduce((a,e)=>a+(e.elapsed||0),0);
+  let totalToday=todayT.length+todayS.length;
+  let totalOverdue=overdueT.length+overdueS.length;
+  let totalDone=doneT.length+doneS.length;
+  let h=`<div class="page-header"><h1>${dayName(TODAY)}, ${monthName(TODAY)} ${TODAY.getDate()}</h1><div class="subtitle">${TODAY.getFullYear()} — Here's what's on your plate</div></div>`;
+  h+=`<div class="stats-row"><div class="stat-card accent"><div class="stat-label">Due today</div><div class="stat-value">${totalToday}</div></div><div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value">${totalOverdue}</div></div><div class="stat-card"><div class="stat-label">Done today</div><div class="stat-value">${totalDone}</div></div>`;
+  if(est>0)h+=`<div class="stat-card"><div class="stat-label">Est. work</div><div class="stat-value">${fmtDur(est)}</div></div>`;
+  if(tw>0)h+=`<div class="stat-card green"><div class="stat-label">Time worked</div><div class="stat-value">${fmtMs(tw)}</div></div>`;
+  h+=`</div>`;
+  if(totalOverdue)h+=`<div class="overdue-banner"><span>⚠️ ${totalOverdue} overdue item${totalOverdue>1?'s':''}</span><button class="ob-btn" onclick="moveAllToToday()">Move all to today</button></div>`;
+  if(totalOverdue){
+    h+=`<div class="section-title">⚠️ Overdue (${totalOverdue})</div>`;
+    // Merge overdue tasks and subs by scheduled date
+    let merged=[];
+    overdueT.forEach(t=>merged.push({kind:'task',sortKey:t.scheduledDate||'',html:taskCard(t)}));
+    overdueS.forEach(({sub,parent})=>merged.push({kind:'sub',sortKey:sub.scheduledDate||'',html:subtaskCard(parent,sub)}));
+    merged.sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+    merged.forEach(m=>h+=m.html);
+  }
+  h+=`<div class="section-title">📅 Today (${totalToday})</div>`;
+  if(totalToday){
+    // Build today's list: timed tasks/subs first (sorted), then untimed
+    let timedTasks=todayT.filter(t=>taskTime(t)).map(t=>({kind:'task',obj:t,time:taskTime(t)}));
+    let untimedTasks=todayT.filter(t=>!taskTime(t)).map(t=>({kind:'task',obj:t,time:''}));
+    let timedSubs=todayS.filter(({sub})=>subTime(sub)).map(({sub,parent})=>({kind:'sub',sub,parent,time:subTime(sub)}));
+    let untimedSubs=todayS.filter(({sub})=>!subTime(sub)).map(({sub,parent})=>({kind:'sub',sub,parent,time:''}));
+    let timed=[...timedTasks,...timedSubs].sort((a,b)=>a.time.localeCompare(b.time));
+    let untimed=[...untimedTasks,...untimedSubs];
+    [...timed,...untimed].forEach(it=>{
+      if(it.kind==='task')h+=taskCard(it.obj);
+      else h+=subtaskCard(it.parent,it.sub);
+    });
+  } else h+=`<div class="empty-state"><div class="es-icon">✨</div><div class="es-text">Nothing scheduled for today</div><div class="es-sub">Enjoy the free time, or add a task!</div></div>`;
+  if(totalDone){
+    h+=`<div class="section-title">✅ Completed Today (${totalDone})</div>`;
+    doneT.forEach(t=>h+=taskCard(t,true,'history'));
+    doneS.forEach(e=>h+=subHistoryCard(e));
+  }
+  $('#pageToday').innerHTML=h;
+}
+function moveAllToToday(){
+  let td=todDS();
+  S.tasks.forEach(t=>{
+    if(!t.finished&&taskDate(t)&&taskDate(t)<td){
+      if(!t.originalScheduledDate)t.originalScheduledDate=t.scheduledDate;
+      let time=taskTime(t);
+      t.scheduledDate=time?td+'T'+time:td;
+    }
+    // Also move overdue scheduled subtasks
+    (t.subtasks||[]).forEach(s=>{
+      if(!s.finished&&subDate(s)&&subDate(s)<td){
+        if(!s.originalScheduledDate)s.originalScheduledDate=s.scheduledDate;
+        let stime=subTime(s);
+        s.scheduledDate=stime?td+'T'+stime:td;
+      }
+    });
+  });
+  save();renderAll();toast('Moved all to today');
+}
 
 // ===== TASK CARD =====
 function taskCard(t,done,source){let col=getCatColor(t.category),lbl=getLabelObj(t.label),time=taskTime(t),td=todDS(),src=source||'tasks';
@@ -1185,6 +1294,40 @@ acts+=`<button class="timer-btn${t.timerRunning?' running':''}" onclick="event.s
 acts+=`<button class="finish-btn" onclick="event.stopPropagation();finishTask('${t.id}')" title="Mark complete">✓</button>`;
 acts+=`<button class="edit-btn" onclick="event.stopPropagation();openEditTask('${t.id}','${src}')" title="Edit task">✎</button>`}else{acts+=`<button class="finish-btn" onclick="event.stopPropagation();undoTask('${t.id}','${src}')" title="Restore">↩</button>`;acts+=`<button class="edit-btn" onclick="event.stopPropagation();openEditTask('${t.id}','${src}')" title="Edit task">✎</button>`}
 return`<div class="task-card${done?' done':''}" onclick="openDetail('${t.id}','${src}')" draggable="true" ondragstart="onDragStart(event,'${t.id}')"><div class="color-bar" style="background:${col}"></div><div class="tc-body"><div class="tc-name">${esc(t.name)}</div><div class="tc-meta">${meta}</div></div><div class="tc-actions">${acts}</div></div>`}
+
+// ===== SUBTASK CARD (for scheduled sub-sessions) =====
+function subtaskCard(parent,s,done){
+  let col=getCatColor(parent.category),time=subTime(s),td=todDS();
+  let displayEl=s.elapsed||0;
+  if(s.timerRunning&&timerStartTime&&timerTaskId===parent.id&&timerSubId===s.id){
+    displayEl+=Date.now()-timerStartTime;
+  }
+  let meta='';
+  if(time)meta+=`<span class="tc-pill time">${fmt12(time)}</span>`;
+  // Overdue indicator for sub
+  if(!done&&subDate(s)&&subDate(s)<td){
+    let d=Math.abs(daysBetween(parseDS(subDate(s)),TODAY));
+    meta+=`<span class="tc-pill overdue">${d}d overdue</span>`;
+  }
+  if(s.timerRunning)meta+=`<span class="tc-pill timer-running timer-display" data-tid="${parent.id}" data-sid="${s.id}">${fmtT(displayEl)}</span>`;
+  else if(displayEl>0&&!done)meta+=`<span class="tc-pill time timer-display" data-tid="${parent.id}" data-sid="${s.id}">${fmtT(displayEl)}</span>`;
+  meta+=`<span class="tc-pill subtask-of" onclick="event.stopPropagation();openDetail('${parent.id}','tasks')" title="Open parent: ${esc(parent.name)}">↳ ${esc(parent.name)}</span>`;
+  let acts='';
+  if(!done){
+    acts+=`<button class="timer-btn${s.timerRunning?' running':''}" onclick="event.stopPropagation();toggleTimer('${parent.id}','${s.id}')" title="${s.timerRunning?'Pause':'Start'} timer">${s.timerRunning?'⏸':'▶'}</button>`;
+    acts+=`<button class="finish-btn" onclick="event.stopPropagation();finishSub('${parent.id}','${s.id}')" title="Mark done for today">✓</button>`;
+    acts+=`<button class="edit-btn" onclick="event.stopPropagation();openEditSub('${parent.id}','${s.id}')" title="Edit session">✎</button>`;
+  }
+  return `<div class="task-card subtask-card${done?' done':''}" onclick="openDetail('${parent.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${parent.id}','${s.id}')"><div class="color-bar" style="background:${col}"></div><div class="tc-body"><div class="tc-name">${esc(s.name)}</div><div class="tc-meta">${meta}</div></div><div class="tc-actions">${acts}</div></div>`;
+}
+// ===== SUBTASK HISTORY CARD (for completed sub-sessions in today view) =====
+function subHistoryCard(e){
+  let col=getCatColor(e.category);
+  let meta='';
+  if(e.elapsed)meta+=`<span class="tc-pill time">${fmtMs(e.elapsed)}</span>`;
+  meta+=`<span class="tc-pill subtask-of" onclick="event.stopPropagation();viewSubHistParent('${e.parentId}')" title="Open parent: ${esc(e.parentName)}">↳ ${esc(e.parentName)}</span>`;
+  return `<div class="task-card subtask-card done"><div class="color-bar" style="background:${col}"></div><div class="tc-body"><div class="tc-name">${esc(e.name)}</div><div class="tc-meta">${meta}</div></div><div class="tc-actions"><button class="finish-btn" onclick="event.stopPropagation();undoSubHist('${e.id}')" title="Restore">↩</button></div></div>`;
+}
 
 // ===== ALL TASKS =====
 function renderAllTasks(){let h=`<div class="page-header"><h1>All Tasks</h1><div class="subtitle">Everything in one place</div></div>`;
@@ -1249,30 +1392,47 @@ function calToday(){calDate=new Date(TODAY);renderCalendar()}
 function setCalView(v){calView=v;renderCalendar()}
 function weekStart(d){let w=new Date(d);w.setDate(w.getDate()-w.getDay());return w}
 function calTasks(){let all=[...S.tasks.filter(t=>!t.hideFromCalendar),...S.history.filter(t=>!t.hideFromCalendar)];if(CAL_CF)all=all.filter(t=>t.category===CAL_CF);if(CAL_LF)all=all.filter(t=>t.label===CAL_LF);return all}
+// Returns array of {parent, sub} for active scheduled subs, respecting category/label filters and hideFromCalendar
+function calScheduledSubs(){
+  let out=[];
+  S.tasks.forEach(t=>{
+    if(t.finished||t.hideFromCalendar)return;
+    if(CAL_CF&&t.category!==CAL_CF)return;
+    if(CAL_LF&&t.label!==CAL_LF)return;
+    (t.subtasks||[]).forEach(s=>{
+      if(s.finished||!s.scheduledDate)return;
+      out.push({parent:t,sub:s});
+    });
+  });
+  return out;
+}
 
-function renderMonth(){let td=todDS(),y=calDate.getFullYear(),m=calDate.getMonth(),tasks=calTasks();
+function renderMonth(){let td=todDS(),y=calDate.getFullYear(),m=calDate.getMonth(),tasks=calTasks(),allSubs=calScheduledSubs();
 let h=`<div class="month-grid">`;['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>h+=`<div class="day-header">${d}</div>`);
 let first=new Date(y,m,1),sd=new Date(first);sd.setDate(sd.getDate()-first.getDay());
 for(let i=0;i<42;i++){let d=new Date(sd);d.setDate(sd.getDate()+i);let ds=toDS(d),isOther=d.getMonth()!==m,isToday=ds===td;
 let cls='day-cell'+(isOther?' other':'')+(isToday?' today':'');
 let dT=tasks.filter(t=>taskDate(t)===ds&&!t.finished),dD=tasks.filter(t=>taskDate(t)===ds&&t.finished);
 let dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds&&taskDate(t)!==ds);
-if(CAL_SHOW==='deadlines'){dT=[];dD=[];dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds)}
+let dS=allSubs.filter(({sub})=>subDate(sub)===ds);
+if(CAL_SHOW==='deadlines'){dT=[];dD=[];dS=[];dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds)}
 let items=[];
 dls.forEach(t=>{let col=getCatColor(t.category),c=t.dueDate.slice(0,10)<td?'deadline dl-overdue':t.dueDate.slice(0,10)===td?'deadline dl-today':'deadline';items.push(`<span class="cal-chip ${c}" style="${c==='deadline'?`background:${hexTint(col,.85)};border-color:${col};color:${col}`:''}" onclick="event.stopPropagation();openDetail('${t.id}','${t.finished?'history':'tasks'}')" title="${esc(t.name)}">⬡ ${esc(t.name)}</span>`)});
 dT.forEach(t=>{let col=getCatColor(t.category),time=taskTime(t);items.push(`<span class="cal-chip task" style="border-color:${col};background:${hexTint(col,.92)}" onclick="event.stopPropagation();openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')" title="${esc(t.name)}">${time?fmt12(time)+' ':''}${esc(t.name)}</span>`)});
+dS.forEach(({sub,parent})=>{let col=getCatColor(parent.category),time=subTime(sub);items.push(`<span class="cal-chip task sub-chip" style="border-color:${col};background:${hexTint(col,.95)};font-style:italic" onclick="event.stopPropagation();openDetail('${parent.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${parent.id}','${sub.id}')" title="Session on: ${esc(parent.name)}">↳ ${time?fmt12(time)+' ':''}${esc(sub.name)}</span>`)});
 dD.forEach(t=>{let col=getCatColor(t.category);items.push(`<span class="cal-chip task" style="border-color:${col};background:${hexTint(col,.92)};opacity:.5;text-decoration:line-through" onclick="event.stopPropagation();openDetail('${t.id}','history')">${esc(t.name)}</span>`)});
 let show=items.slice(0,3).join(''),more=items.length>3?`<span class="more-link" onclick="event.stopPropagation();calDate=new Date(${d.getFullYear()},${d.getMonth()},${d.getDate()});setCalView('day')">+${items.length-3} more</span>`:'';
 h+=`<div class="${cls}" data-date="${ds}" onclick="openNewTask('${ds}')" ondragover="event.preventDefault();this.classList.add('drop-target')" ondragleave="this.classList.remove('drop-target')" ondrop="onDropMonth(event,'${ds}')"><div class="day-num">${d.getDate()}</div>${show}${more}</div>`}
 return h+'</div>'}
 
-function renderWeek(){let td=todDS(),start=weekStart(calDate),days=[];for(let i=0;i<7;i++){let d=new Date(start);d.setDate(d.getDate()+i);days.push(d)}let tasks=calTasks();
+function renderWeek(){let td=todDS(),start=weekStart(calDate),days=[];for(let i=0;i<7;i++){let d=new Date(start);d.setDate(d.getDate()+i);days.push(d)}let tasks=calTasks(),allSubs=calScheduledSubs();
 let h=`<div class="week-grid"><div class="week-header" style="grid-template-columns:50px repeat(7,1fr)"><div class="wh-cell" style="font-size:.65rem;color:var(--text3)"></div>`;
 days.forEach(d=>{let ds=toDS(d);h+=`<div class="wh-cell${ds===td?' today':''}" onclick="calDate=new Date(${d.getFullYear()},${d.getMonth()},${d.getDate()});setCalView('day')"><div class="wh-day">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]}</div><div class="wh-date">${d.getDate()}</div></div>`});h+=`</div>`;
 h+=`<div class="allday-row" style="grid-template-columns:50px repeat(7,1fr)"><div class="ad-cell" style="background:var(--cream);font-size:.6rem;color:var(--text3);display:flex;align-items:center;justify-content:center">All day</div>`;
-days.forEach(d=>{let ds=toDS(d),dT=tasks.filter(t=>taskDate(t)===ds&&!taskTime(t)&&!t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds);let chips='';
+days.forEach(d=>{let ds=toDS(d),dT=tasks.filter(t=>taskDate(t)===ds&&!taskTime(t)&&!t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds);let dS=allSubs.filter(({sub})=>subDate(sub)===ds);let chips='';
 dls.forEach(t=>{let col=getCatColor(t.category);chips+=`<span class="cal-chip deadline" style="background:${hexTint(col,.85)};border-color:${col};color:${col};font-size:.6rem" onclick="openDetail('${t.id}','${t.finished?'history':'tasks'}')">⬡ ${esc(t.name)}</span>`});
 dT.forEach(t=>{let col=getCatColor(t.category);chips+=`<span class="cal-chip task" style="border-color:${col};background:${hexTint(col,.92)};font-size:.6rem" onclick="openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')">${esc(t.name)}</span>`});
+dS.forEach(({sub,parent})=>{let col=getCatColor(parent.category),time=subTime(sub);chips+=`<span class="cal-chip task sub-chip" style="border-color:${col};background:${hexTint(col,.95)};font-size:.6rem;font-style:italic" onclick="openDetail('${parent.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${parent.id}','${sub.id}')" title="Session on: ${esc(parent.name)}">↳ ${time?fmt12(time)+' ':''}${esc(sub.name)}</span>`});
 h+=`<div class="ad-cell">${chips}</div>`});h+=`</div>`;
 h+=`<div class="hourly-grid" style="grid-template-columns:50px repeat(7,1fr);position:relative">`;
 for(let hr=0;hr<24;hr++){let lbl=hr===0?'12 AM':hr<12?hr+' AM':hr===12?'12 PM':(hr-12)+' PM';h+=`<div class="hour-label">${lbl}</div>`;days.forEach(d=>{let ds=toDS(d);h+=`<div class="hour-col${ds===td?' today-col':''}" data-date="${ds}" data-hour="${hr}" onclick="openNewTask('${ds}','${String(hr).padStart(2,'0')}:00')" ondragover="event.preventDefault();this.classList.add('drop-target')" ondragleave="this.classList.remove('drop-target')" ondrop="onDropWeek(event,'${ds}',${hr})"><div class="hour-half"></div></div>`})}
@@ -1311,16 +1471,18 @@ const gap=2,slotW=(cellW-gap*(numCols+1))/numCols;const left=cellLeft+gap+col*(s
 let catCol=getCatColor(t.category),bl=document.createElement('div');bl.className='week-block'+(detailTaskId===t.id?' selected':'');bl.style.cssText=`top:${top}px;left:${left}px;width:${w}px;height:${height}px;background:${hexTint(catCol,.88)};border-color:${catCol}`;bl.draggable=true;bl.onclick=()=>openDetail(t.id,'tasks');bl.ondragstart=e=>onDragStart(e,t.id);bl.innerHTML=`<div class="wb-time">${fmt12(taskTime(t))}</div><div class="wb-name">${esc(t.name)}</div>${t.estDuration&&height>44?`<div class="wb-dur">${fmtDur(t.estDuration)}</div>`:''}`;grid.appendChild(bl)});
 if(toDS(d)===todDS()){let now=new Date(),hr=now.getHours()+now.getMinutes()/60,cel=cols[di];if(cel){let cr=cel.getBoundingClientRect(),top=oy+hr*rh,left=cr.left-gr.left,w=cr.width;let ln=document.createElement('div');ln.className='now-line';ln.style.cssText=`top:${top}px;left:${left}px;width:${w}px`;grid.appendChild(ln)}}})}
 
-function renderDay(){let d=new Date(calDate),ds=toDS(d),td=todDS(),tasks=calTasks();
+function renderDay(){let d=new Date(calDate),ds=toDS(d),td=todDS(),tasks=calTasks(),allSubs=calScheduledSubs();
 let dT=tasks.filter(t=>taskDate(t)===ds&&!t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds);
+let dS=allSubs.filter(({sub})=>subDate(sub)===ds);
 let allDayT=dT.filter(t=>!taskTime(t));
 let timedT=dT.filter(t=>!!taskTime(t));
-let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} tasks${allDayT.length?' ('+allDayT.length+' all-day)':''}${dls.length?' · '+dls.length+' deadline'+(dls.length>1?'s':''):''}</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
+let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} task${dT.length!==1?'s':''}${dS.length?' · '+dS.length+' session'+(dS.length>1?'s':''):''}${allDayT.length?' ('+allDayT.length+' all-day)':''}${dls.length?' · '+dls.length+' deadline'+(dls.length>1?'s':''):''}</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
 // All-day section
-let hasAllDay=allDayT.length||dls.length;
+let hasAllDay=allDayT.length||dls.length||dS.length;
 if(hasAllDay){h+=`<div class="dv-allday"><div class="dv-allday-label">All day</div><div class="dv-allday-chips">`;
 dls.forEach(t=>{let col=getCatColor(t.category),isDl=t.dueDate.slice(0,10),ov=isDl<td,isToday=isDl===td;let cls=ov?'deadline dl-overdue':isToday?'deadline dl-today':'deadline';h+=`<span class="cal-chip ${cls}" style="${cls==='deadline'?'background:'+hexTint(col,.85)+';border-color:'+col+';color:'+col:''}" onclick="openDetail('${t.id}','${t.finished?'history':'tasks'}')">⬡ ${esc(t.name)}</span>`});
 allDayT.forEach(t=>{let col=getCatColor(t.category);h+=`<span class="cal-chip task" style="border-color:${col};background:${hexTint(col,.92)}" onclick="openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')">${esc(t.name)}</span>`});
+dS.forEach(({sub,parent})=>{let col=getCatColor(parent.category),time=subTime(sub);h+=`<span class="cal-chip task sub-chip" style="border-color:${col};background:${hexTint(col,.95)};font-style:italic" onclick="openDetail('${parent.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${parent.id}','${sub.id}')" title="Session on: ${esc(parent.name)}">↳ ${time?fmt12(time)+' ':''}${esc(sub.name)}</span>`});
 h+=`</div></div>`}
 h+=`<div class="week-grid"><div class="hourly-grid" style="grid-template-columns:50px 1fr;position:relative">`;
 for(let hr=0;hr<24;hr++){let lbl=hr===0?'12 AM':hr<12?hr+' AM':hr===12?'12 PM':(hr-12)+' PM';h+=`<div class="hour-label">${lbl}</div><div class="hour-col${ds===td?' today-col':''}" data-date="${ds}" data-hour="${hr}" onclick="openNewTask('${ds}','${String(hr).padStart(2,'0')}:00')" ondragover="event.preventDefault();this.classList.add('drop-target')" ondragleave="this.classList.remove('drop-target')" ondrop="onDropWeek(event,'${ds}',${hr})"><div class="hour-half"></div></div>`}
@@ -1335,12 +1497,13 @@ return h}
 
 // ===== FIT-TO-SCREEN VIEWS =====
 function renderWeekFit(){let td=todDS(),start=weekStart(calDate),days=[];for(let i=0;i<7;i++){let d=new Date(start);d.setDate(d.getDate()+i);days.push(d)}
-let tasks=calTasks();
+let tasks=calTasks(),allSubs=calScheduledSubs();
 // Calculate available height: viewport - topbar - cal-filters - some padding
 let h=`<div class="fit-week" style="height:calc(100dvh - 200px);min-height:280px">`;
 days.forEach(d=>{let ds=toDS(d),isToday=ds===td;
 let dT=tasks.filter(t=>taskDate(t)===ds&&!t.finished),dD=tasks.filter(t=>taskDate(t)===ds&&t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds&&taskDate(t)!==ds);
-if(CAL_SHOW==='deadlines'){dT=[];dD=[];dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds)}
+let dS=allSubs.filter(({sub})=>subDate(sub)===ds);
+if(CAL_SHOW==='deadlines'){dT=[];dD=[];dS=[];dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds)}
 // Sort: timed tasks first by time, then all-day, then deadlines
 let timed=dT.filter(t=>taskTime(t)).sort((a,b)=>taskTime(a).localeCompare(taskTime(b)));
 let allday=dT.filter(t=>!taskTime(t));
@@ -1348,16 +1511,18 @@ h+=`<div class="fit-week-col"><div class="fit-week-head${isToday?' today':''}" o
 dls.forEach(t=>{let col=getCatColor(t.category),isOv=t.dueDate.slice(0,10)<td,isDue=t.dueDate.slice(0,10)===td;let style=isOv?'background:#fde8e8;border-color:#c53030;color:#c53030':isDue?'background:#fef3e0;border-color:#c57600;color:#c57600':`background:${hexTint(col,.85)};border-color:${col};color:${col}`;h+=`<div class="fit-chip deadline" style="${style}" onclick="event.stopPropagation();openDetail('${t.id}','${t.finished?'history':'tasks'}')" title="${esc(t.name)}">⬡ ${esc(t.name)}</div>`});
 timed.forEach(t=>{let col=getCatColor(t.category);h+=`<div class="fit-chip" style="border-color:${col};background:${hexTint(col,.92)}" onclick="event.stopPropagation();openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')" title="${esc(t.name)}"><span class="fc-time">${fmt12(taskTime(t))}</span>${esc(t.name)}</div>`});
 allday.forEach(t=>{let col=getCatColor(t.category);h+=`<div class="fit-chip" style="border-color:${col};background:${hexTint(col,.92)}" onclick="event.stopPropagation();openDetail('${t.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${t.id}')" title="${esc(t.name)}">${esc(t.name)}</div>`});
+dS.forEach(({sub,parent})=>{let col=getCatColor(parent.category),time=subTime(sub);h+=`<div class="fit-chip sub-chip" style="border-color:${col};background:${hexTint(col,.95)};font-style:italic;border-style:dashed" onclick="event.stopPropagation();openDetail('${parent.id}','tasks')" draggable="true" ondragstart="onDragStart(event,'${parent.id}','${sub.id}')" title="Session on: ${esc(parent.name)}">${time?`<span class="fc-time">${fmt12(time)}</span>`:''}↳ ${esc(sub.name)}</div>`});
 dD.forEach(t=>{let col=getCatColor(t.category);h+=`<div class="fit-chip done" style="border-color:${col};background:${hexTint(col,.92)}" onclick="event.stopPropagation();openDetail('${t.id}','history')" title="${esc(t.name)}">${esc(t.name)}</div>`});
-if(!dls.length&&!timed.length&&!allday.length&&!dD.length)h+=`<div style="font-size:.65rem;color:var(--text3);text-align:center;padding:8px 0">—</div>`;
+if(!dls.length&&!timed.length&&!allday.length&&!dD.length&&!dS.length)h+=`<div style="font-size:.65rem;color:var(--text3);text-align:center;padding:8px 0">—</div>`;
 h+=`</div></div>`});
 h+=`</div>`;return h}
 
-function renderDayFit(){let d=new Date(calDate),ds=toDS(d),td=todDS(),tasks=calTasks();
+function renderDayFit(){let d=new Date(calDate),ds=toDS(d),td=todDS(),tasks=calTasks(),allSubs=calScheduledSubs();
 let dT=tasks.filter(t=>taskDate(t)===ds&&!t.finished),dD=tasks.filter(t=>taskDate(t)===ds&&t.finished),dls=tasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===ds);
+let dS=allSubs.filter(({sub})=>subDate(sub)===ds);
 let timed=dT.filter(t=>taskTime(t)).sort((a,b)=>taskTime(a).localeCompare(taskTime(b)));
 let allday=dT.filter(t=>!taskTime(t));
-let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} task${dT.length!==1?'s':''}${dls.length?' · '+dls.length+' deadline'+(dls.length>1?'s':''):''}</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
+let h=`<div class="day-view-header"><div><div class="dvh-day">${dayName(d)}</div><div class="dvh-date">${d.getDate()}</div></div><div><div style="font-family:var(--font-heading);font-weight:600">${monthName(d)} ${d.getFullYear()}</div><div class="dvh-info">${dT.length} task${dT.length!==1?'s':''}${dS.length?' · '+dS.length+' session'+(dS.length>1?'s':''):''}${dls.length?' · '+dls.length+' deadline'+(dls.length>1?'s':''):''}</div></div><button class="btn-add-task dvh-add" onclick="openNewTask('${ds}')">+ Add</button></div>`;
 h+=`<div class="fit-day">`;
 if(dls.length){h+=`<div class="fit-day-section"><h3>🏁 Deadlines (${dls.length})</h3><div class="fit-day-list">`;
 dls.forEach(t=>{let col=getCatColor(t.category),isOv=t.dueDate.slice(0,10)<td,isDue=t.dueDate.slice(0,10)===td;let style=isOv?'background:#fde8e8;border-color:#c53030;color:#c53030':isDue?'background:#fef3e0;border-color:#c57600;color:#c57600':`background:${hexTint(col,.85)};border-color:${col};color:${col}`;h+=`<div class="fit-chip deadline" style="${style}" onclick="openDetail('${t.id}','${t.finished?'history':'tasks'}')">⬡ ${esc(t.name)}</div>`});
@@ -1366,9 +1531,11 @@ if(timed.length){h+=`<div class="fit-day-section"><h3>⏰ Timed (${timed.length}
 timed.forEach(t=>h+=taskCard(t));h+=`</div></div>`}
 if(allday.length){h+=`<div class="fit-day-section"><h3>📋 All Day (${allday.length})</h3><div class="fit-day-list">`;
 allday.forEach(t=>h+=taskCard(t));h+=`</div></div>`}
+if(dS.length){h+=`<div class="fit-day-section"><h3>🎯 Sessions (${dS.length})</h3><div class="fit-day-list">`;
+dS.forEach(({sub,parent})=>h+=subtaskCard(parent,sub));h+=`</div></div>`}
 if(dD.length){h+=`<div class="fit-day-section"><h3>✅ Completed (${dD.length})</h3><div class="fit-day-list">`;
 dD.forEach(t=>h+=taskCard(t,true,'history'));h+=`</div></div>`}
-if(!dls.length&&!timed.length&&!allday.length&&!dD.length)h+=`<div class="empty-state"><div class="es-icon">✨</div><div class="es-text">Nothing scheduled</div><div class="es-sub">Click "+ Add" to create a task</div></div>`;
+if(!dls.length&&!timed.length&&!allday.length&&!dD.length&&!dS.length)h+=`<div class="empty-state"><div class="es-icon">✨</div><div class="es-text">Nothing scheduled</div><div class="es-sub">Click "+ Add" to create a task</div></div>`;
 h+=`</div>`;return h}
 
 // ===== HISTORY =====
@@ -1433,12 +1600,59 @@ function addCat(){let n=$('#newCatName').value.trim();if(!n)return;S.categories.
 function addLbl(){let n=$('#newLblName').value.trim();if(!n)return;S.labels.push({id:gid(),name:n,color:$('#newLblColor').value});save();renderCategories()}
 
 // ===== TASK MODAL =====
-function openNewTask(date,time){editingTaskId=null;editingSource='tasks';renderModal({scheduledDate:(time?(date||todDS())+'T'+time:(date||todDS()))})}
-function openEditTask(id,src){let t=S[src||'tasks'].find(x=>x.id===id);if(!t)return;editingTaskId=id;editingSource=src||'tasks';renderModal(t)}
-function renderModal(t){let isEdit=!!editingTaskId,date=taskDate(t)||todDS(),time=taskTime(t)||'',rec=t.recurring||{type:'none',every:2,weekday:0,monthday:1};
-let durOpts=[0,15,30,45,60,90,120,180,240,480],isCustDur=t.estDuration&&!durOpts.includes(t.estDuration);
-let h=`<h2>${isEdit?'Edit Task':'New Task'}</h2>
-<div class="modal-row"><div class="modal-field"><label>Date</label><input type="date" id="mDate" value="${date}"></div><div class="modal-field"><label>Time</label><input type="time" id="mTime" value="${time}"></div></div>
+function openNewTask(date,time){editingTaskId=null;editingSource='tasks';_modalMode='task';editingSub=null;renderModal({scheduledDate:(time?(date||todDS())+'T'+time:(date||todDS()))})}
+function openEditTask(id,src){let t=S[src||'tasks'].find(x=>x.id===id);if(!t)return;editingTaskId=id;editingSource=src||'tasks';_modalMode='task';editingSub=null;renderModal(t)}
+function switchModalMode(mode){
+  // Capture current input so user doesn't lose typed values when toggling
+  const cur={
+    name:$('#mName')?$('#mName').value:'',
+    date:$('#mDate')?$('#mDate').value:'',
+    time:$('#mTime')?$('#mTime').value:''
+  };
+  _modalMode=mode;
+  const carry={
+    name:cur.name,
+    scheduledDate:cur.date?(cur.time?cur.date+'T'+cur.time:cur.date):todDS()
+  };
+  renderModal(carry);
+}
+function renderModal(t){
+  let isEdit=!!editingTaskId;
+  let date=taskDate(t)||todDS(),time=taskTime(t)||'';
+  // SUB-SESSION MODE (only on new) — minimal form: pick parent, set name + date/time
+  if(!isEdit&&_modalMode==='subsession'){
+    const projects=S.tasks.filter(x=>x.isProject&&!x.finished);
+    let h=`<h2>New Session</h2>`;
+    h+=`<div class="modal-type-toggle">
+      <button type="button" class="mtt-btn" onclick="switchModalMode('task')">📋 New Task</button>
+      <button type="button" class="mtt-btn active" onclick="switchModalMode('subsession')">🎯 Session on Project</button>
+    </div>`;
+    if(!projects.length){
+      h+=`<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:.82rem;color:var(--text2);margin-bottom:14px">No projects yet. Create a task and mark it as "Project" first, then come back here to schedule sessions on it.</div>`;
+      h+=`<div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="switchModalMode('task')">Create Project Instead</button></div>`;
+    } else {
+      h+=`<div class="modal-field"><label>Parent Project</label><input type="text" id="mProjSearch" placeholder="Search projects..." autocomplete="off"><div class="proj-picker" id="mProjList"></div><input type="hidden" id="mProjId" value=""></div>`;
+      h+=`<div class="modal-field"><label>Session Title</label><input type="text" id="mName" value="${esc(t.name||'')}" placeholder="What will you focus on?"></div>`;
+      h+=`<div class="modal-row"><div class="modal-field"><label>Date</label><input type="date" id="mDate" value="${date}"></div><div class="modal-field"><label>Time (optional)</label><input type="time" id="mTime" value="${time}"></div></div>`;
+      h+=`<div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveSubSession()">Add Session</button></div>`;
+    }
+    $('#taskModal').innerHTML=h;$('#modalOverlay').classList.add('show');
+    if(projects.length){
+      setTimeout(()=>{_renderProjPicker();$('#mProjSearch').oninput=_renderProjPicker;$('#mName').focus()},50);
+    }
+    return;
+  }
+  // STANDARD TASK MODE (new or edit)
+  let rec=t.recurring||{type:'none',every:2,weekday:0,monthday:1};
+  let durOpts=[0,15,30,45,60,90,120,180,240,480],isCustDur=t.estDuration&&!durOpts.includes(t.estDuration);
+  let h=`<h2>${isEdit?'Edit Task':'New Task'}</h2>`;
+  if(!isEdit){
+    h+=`<div class="modal-type-toggle">
+      <button type="button" class="mtt-btn active" onclick="switchModalMode('task')">📋 New Task</button>
+      <button type="button" class="mtt-btn" onclick="switchModalMode('subsession')">🎯 Session on Project</button>
+    </div>`;
+  }
+  h+=`<div class="modal-row"><div class="modal-field"><label>Date</label><input type="date" id="mDate" value="${date}"></div><div class="modal-field"><label>Time</label><input type="time" id="mTime" value="${time}"></div></div>
 <div class="modal-field"><label>Due Date</label><input type="date" id="mDue" value="${(t.dueDate||'').slice(0,10)}"></div>
 <div class="modal-field"><label>Task Name</label><input type="text" id="mName" value="${esc(t.name||'')}" placeholder="What needs to be done?"></div>
 <div class="modal-field"><label>Description</label><textarea id="mDesc" placeholder="Any details...">${esc(t.description||'')}</textarea></div>
@@ -1447,14 +1661,87 @@ let h=`<h2>${isEdit?'Edit Task':'New Task'}</h2>
 <div class="modal-row"><div class="modal-field"><label>Est. Duration</label><select id="mDur" onchange="document.getElementById('mDurC').style.display=this.value==='custom'?'block':'none'"><option value="0">None</option>${durOpts.slice(1).map(m=>`<option value="${m}"${t.estDuration===m?' selected':''}>${fmtDur(m)}</option>`).join('')}<option value="custom"${isCustDur?' selected':''}>Custom…</option></select><input type="number" id="mDurC" placeholder="Minutes" style="display:${isCustDur?'block':'none'};margin-top:4px" value="${isCustDur?t.estDuration:''}"></div>
 <div class="modal-field"><label>Weight</label><input type="number" id="mWeight" value="${t.weight||1}" min="1" step="1"></div></div>
 <div class="modal-field"><label>Recurring</label><select id="mRec" onchange="updateRecUI()"><option value="none"${rec.type==='none'?' selected':''}>None</option><option value="daily"${rec.type==='daily'?' selected':''}>Every day</option><option value="every_n"${rec.type==='every_n'?' selected':''}>Every N days</option><option value="weekday"${rec.type==='weekday'?' selected':''}>Day of week</option><option value="monthday"${rec.type==='monthday'?' selected':''}>Date of month</option></select><div id="mRecX" style="margin-top:6px"></div><div class="rec-explain" id="mRecE"></div></div>
+<div class="modal-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="mProject"${t.isProject?' checked':''}> <strong>Project</strong> — allow scheduling separate work sessions on this task</label></div>
 <div class="modal-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="mHide"${t.hideFromCalendar?' checked':''}> Hide from calendar</label></div>
 <div class="modal-field"><label>Subtasks</label><div id="mSubs">`;
-(t.subtasks||[]).forEach(s=>{h+=`<div class="modal-subtask"><input type="text" value="${esc(s.name)}" data-subid="${s.id}"><button onclick="this.parentElement.remove()">×</button></div>`});
-h+=`</div><div class="modal-subtask" style="margin-top:4px"><input type="text" id="mNewSub" placeholder="Add subtask..." onkeydown="if(event.key==='Enter')addMSub()"><button onclick="addMSub()">+</button></div></div>
+  (t.subtasks||[]).forEach(s=>{h+=`<div class="modal-subtask"><input type="text" value="${esc(s.name)}" data-subid="${s.id}"><button onclick="this.parentElement.remove()">×</button></div>`});
+  h+=`</div><div class="modal-subtask" style="margin-top:4px"><input type="text" id="mNewSub" placeholder="Add subtask..." onkeydown="if(event.key==='Enter')addMSub()"><button onclick="addMSub()">+</button></div></div>
 <div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveTask()">${isEdit?'Update Task':'Save Task'}</button></div>`;
-$('#taskModal').innerHTML=h;$('#modalOverlay').classList.add('show');
-$('#mCat').onchange=function(){let p=$('#mCatPreview');if(this.value){p.style.display='block';p.style.background=getCatColor(this.value)}else p.style.display='none'};
-setTimeout(()=>{updateRecUI();if(!isEdit)$('#mName').focus()},50)}
+  $('#taskModal').innerHTML=h;$('#modalOverlay').classList.add('show');
+  $('#mCat').onchange=function(){let p=$('#mCatPreview');if(this.value){p.style.display='block';p.style.background=getCatColor(this.value)}else p.style.display='none'};
+  setTimeout(()=>{updateRecUI();if(!isEdit)$('#mName').focus()},50);
+}
+function _renderProjPicker(){
+  const q=($('#mProjSearch').value||'').toLowerCase();
+  const projects=S.tasks.filter(x=>x.isProject&&!x.finished);
+  const filtered=q?projects.filter(p=>p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)):projects;
+  const sel=$('#mProjId').value;
+  const list=$('#mProjList');
+  if(!filtered.length){list.innerHTML='<div class="proj-pick-empty">No matching projects</div>';return}
+  list.innerHTML=filtered.map(p=>{
+    const col=getCatColor(p.category);
+    const tint=hexTint(col,.85);
+    return `<div class="proj-pick-item${sel===p.id?' selected':''}" data-pid="${p.id}" data-pname="${esc(p.name)}"><span class="pp-dot" style="background:${col}"></span><span class="pp-name">${esc(p.name)}</span>${p.category?`<span class="tc-pill" style="background:${tint};color:${col};font-size:.65rem">${esc(p.category)}</span>`:''}</div>`;
+  }).join('');
+  list.querySelectorAll('.proj-pick-item').forEach(el=>{
+    el.onclick=()=>{
+      $('#mProjId').value=el.dataset.pid;
+      $('#mProjSearch').value=el.dataset.pname;
+      _renderProjPicker();
+    };
+  });
+}
+function saveSubSession(){
+  const projId=$('#mProjId').value;
+  if(!projId){toast('Pick a project first');return}
+  const name=$('#mName').value.trim();
+  if(!name){toast('Session title required');return}
+  const t=S.tasks.find(x=>x.id===projId);
+  if(!t){toast('Project not found');return}
+  const dateV=$('#mDate').value;
+  const timeV=$('#mTime').value;
+  const sched=dateV?(timeV?dateV+'T'+timeV:dateV):'';
+  const newSub={id:gid(),name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:sched,originalScheduledDate:'',sessions:[]};
+  t.subtasks=t.subtasks||[];
+  t.subtasks.push(newSub);
+  save();closeModal();renderAll();
+  toast('Session scheduled');
+}
+function openEditSub(tid,sid){
+  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  const s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;
+  editingSub={parentId:tid,subId:sid};
+  editingTaskId=null; _modalMode='task'; // ensure other modal flows are inactive
+  const date=subDate(s)||'',time=subTime(s)||'';
+  $('#taskModal').innerHTML=`
+    <h2>Edit Session</h2>
+    <div style="font-size:.8rem;color:var(--text3);margin-bottom:14px">Part of: <strong>${esc(t.name)}</strong></div>
+    <div class="modal-field"><label>Session Title</label><input type="text" id="esName" value="${esc(s.name)}"></div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Date</label><input type="date" id="esDate" value="${date}"></div>
+      <div class="modal-field"><label>Time (optional)</label><input type="time" id="esTime" value="${time}"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEditSub()">Save</button>
+    </div>
+  `;
+  $('#modalOverlay').classList.add('show');
+  setTimeout(()=>{const el=$('#esName');if(el)el.focus()},50);
+}
+function saveEditSub(){
+  if(!editingSub)return;
+  const {parentId,subId}=editingSub;
+  const t=S.tasks.find(x=>x.id===parentId);if(!t){closeModal();return}
+  const s=(t.subtasks||[]).find(x=>x.id===subId);if(!s){closeModal();return}
+  const name=$('#esName').value.trim();
+  if(!name){toast('Name required');return}
+  const dateV=$('#esDate').value,timeV=$('#esTime').value;
+  s.name=name;
+  s.scheduledDate=dateV?(timeV?dateV+'T'+timeV:dateV):'';
+  save();closeModal();renderAll();
+  toast('Session updated');
+}
 function updateRecUI(){let type=$('#mRec').value,extra='',explain='';
 let rec=(editingTaskId&&S[editingSource]?S[editingSource].find(t=>t.id===editingTaskId):null);rec=rec?rec.recurring:{every:2,weekday:0,monthday:1};
 switch(type){case'every_n':extra=`<input type="number" id="mRecEvery" value="${rec.every||2}" min="2" style="width:80px"> days`;explain='Repeats every N days';break;case'weekday':extra=`<select id="mRecWD">${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d,i)=>`<option value="${i}"${rec.weekday===i?' selected':''}>${d}</option>`).join('')}</select>`;explain='Repeats weekly';break;case'monthday':extra=`Day <input type="number" id="mRecMD" value="${rec.monthday||1}" min="1" max="31" style="width:60px"> of each month`;explain='Repeats monthly';break;case'daily':explain='Repeats every day';break}
@@ -1468,12 +1755,19 @@ if(recT==='every_n')rec.every=+($('#mRecEvery')?$('#mRecEvery').value:2)||2;
 if(recT==='weekday')rec.weekday=+($('#mRecWD')?$('#mRecWD').value:0);
 if(recT==='monthday')rec.monthday=+($('#mRecMD')?$('#mRecMD').value:1);
 let newSubs=[];$$('#mSubs .modal-subtask input').forEach(inp=>{let n=inp.value.trim();if(n)newSubs.push({id:inp.dataset.subid||gid(),name:n})});
-if(editingTaskId){let t=S[editingSource].find(x=>x.id===editingTaskId);if(t){t.name=name;t.description=$('#mDesc').value;t.scheduledDate=sched;t.dueDate=$('#mDue').value||'';t.category=$('#mCat').value;t.label=$('#mLabel').value;t.estDuration=dur;t.weight=+$('#mWeight').value||1;t.recurring=rec;t.hideFromCalendar=$('#mHide').checked;
-let old=t.subtasks||[];t.subtasks=newSubs.map(ns=>{let ex=old.find(o=>o.id===ns.id);if(ex){ex.name=ns.name;return ex}return{id:ns.id,name:ns.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',sessions:[]}});
-old.filter(o=>o.finished&&!newSubs.find(n=>n.id===o.id)).forEach(o=>t.subtasks.push(o))}toast('Task updated')}
-else{S.tasks.push(normTask({name,description:$('#mDesc').value,scheduledDate:sched,dueDate:$('#mDue').value||'',category:$('#mCat').value,label:$('#mLabel').value,estDuration:dur,weight:+$('#mWeight').value||1,recurring:rec,hideFromCalendar:$('#mHide').checked,subtasks:newSubs.map(s=>({id:s.id,name:s.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',sessions:[]}))}));toast('Task created')}
+let isProj=$('#mProject')?$('#mProject').checked:false;
+if(editingTaskId){let t=S[editingSource].find(x=>x.id===editingTaskId);if(t){t.name=name;t.description=$('#mDesc').value;t.scheduledDate=sched;t.dueDate=$('#mDue').value||'';t.category=$('#mCat').value;t.label=$('#mLabel').value;t.estDuration=dur;t.weight=+$('#mWeight').value||1;t.recurring=rec;t.hideFromCalendar=$('#mHide').checked;t.isProject=isProj;
+let old=t.subtasks||[];
+// Preserve existing subtasks fully (including scheduledDate, elapsed, sessions, finished state)
+t.subtasks=newSubs.map(ns=>{let ex=old.find(o=>o.id===ns.id);if(ex){ex.name=ns.name;return ex}return{id:ns.id,name:ns.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:'',originalScheduledDate:'',sessions:[]}});
+// Re-attach finished subtasks that were removed from the input list (preserve history continuity)
+old.filter(o=>o.finished&&!newSubs.find(n=>n.id===o.id)).forEach(o=>t.subtasks.push(o));
+// Re-attach scheduled but unfinished subtasks that were removed (don't lose their schedule)
+old.filter(o=>!o.finished&&o.scheduledDate&&!newSubs.find(n=>n.id===o.id)).forEach(o=>t.subtasks.push(o));
+}toast('Task updated')}
+else{S.tasks.push(normTask({name,description:$('#mDesc').value,scheduledDate:sched,dueDate:$('#mDue').value||'',category:$('#mCat').value,label:$('#mLabel').value,estDuration:dur,weight:+$('#mWeight').value||1,recurring:rec,hideFromCalendar:$('#mHide').checked,isProject:isProj,subtasks:newSubs.map(s=>({id:s.id,name:s.name,elapsed:0,timerRunning:false,finished:false,finishedAt:'',scheduledDate:'',originalScheduledDate:'',sessions:[]}))}));toast('Task created')}
 save();closeModal();renderAll()}
-function closeModal(){$('#modalOverlay').classList.remove('show');editingTaskId=null}
+function closeModal(){$('#modalOverlay').classList.remove('show');editingTaskId=null;editingSub=null;_modalMode='task'}
 
 // ===== DETAIL PANEL =====
 function openDetail(id,src){detailTaskId=id;detailSource=src||'tasks';let t=S[detailSource].find(x=>x.id===id);if(!t)return;
@@ -1598,7 +1892,7 @@ function deleteSessionEntry(){
   save();closeSessionEditor();renderAll();if(detailTaskId===taskId)openDetail(taskId,detailSource);
 }
 
-function finishSub(tid,sid){let t=S.tasks.find(x=>x.id===tid);if(!t)return;let s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;if(s.timerRunning&&timerTaskId===tid&&timerSubId===sid)stopAllTimers();s.finished=true;s.finishedAt=new Date().toISOString();s.timerRunning=false;S.subtaskHistory.unshift({id:gid(),parentId:tid,parentName:t.name,subId:sid,name:s.name,category:t.category||'',finishedAt:s.finishedAt,elapsed:s.elapsed||0});save();renderAll();if(detailTaskId===tid)openDetail(tid,detailSource)}
+function finishSub(tid,sid){let t=S.tasks.find(x=>x.id===tid);if(!t)return;let s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;if(s.timerRunning&&timerTaskId===tid&&timerSubId===sid)stopAllTimers();s.finished=true;s.finishedAt=new Date().toISOString();s.timerRunning=false;S.subtaskHistory.unshift({id:gid(),parentId:tid,parentName:t.name,subId:sid,name:s.name,category:t.category||'',finishedAt:s.finishedAt,elapsed:s.elapsed||0,scheduledDate:s.scheduledDate||''});save();renderAll();if(detailTaskId===tid)openDetail(tid,detailSource)}
 function undoSub(tid,sid){let t=S.tasks.find(x=>x.id===tid);if(!t)return;let s=(t.subtasks||[]).find(x=>x.id===sid);if(!s)return;s.finished=false;s.finishedAt='';let idx=S.subtaskHistory.findIndex(e=>e.parentId===tid&&e.subId===sid);if(idx>=0)S.subtaskHistory.splice(idx,1);save();renderAll();if(detailTaskId===tid)openDetail(tid,detailSource)}
 function confirmDel(id,src){showConfirm('Delete Task','Are you sure you want to permanently delete this task?',()=>deleteTask(id,src))}
 
@@ -1609,11 +1903,66 @@ function closeConfirm(){$('#confirmOverlay').classList.remove('show')}
 // ===== FINISH DAY =====}});save();closeConfirm();renderAll();toast('Day finished!')}
 
 // ===== DRAG & DROP =====
-function onDragStart(e,taskId){dragTaskId=taskId;let t=S.tasks.find(x=>x.id===taskId);if(!t)return;e.dataTransfer.setData('text/plain',taskId);let g=$('#dragGhost');g.textContent=t.name;g.style.display='block';
-const mv=ev=>{g.style.left=ev.clientX+10+'px';g.style.top=ev.clientY+10+'px'};document.addEventListener('mousemove',mv);
-const up=()=>{g.style.display='none';document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);$$('.drop-target').forEach(el=>el.classList.remove('drop-target'));dragTaskId=null};document.addEventListener('mouseup',up)}
-function onDropMonth(e,ds){e.preventDefault();let id=e.dataTransfer.getData('text/plain')||dragTaskId;if(!id)return;let t=S.tasks.find(x=>x.id===id);if(t){let time=taskTime(t);t.scheduledDate=time?ds+'T'+time:ds;save();renderAll();toast('Task rescheduled')}}
-function onDropWeek(e,ds,hr){e.preventDefault();let id=e.dataTransfer.getData('text/plain')||dragTaskId;if(!id)return;let t=S.tasks.find(x=>x.id===id);if(t){t.scheduledDate=ds+'T'+String(hr).padStart(2,'0')+':00';save();renderAll();toast('Task rescheduled')}}
+function onDragStart(e,taskId,subId){
+  subId=subId||'';
+  let displayName='';
+  let t=S.tasks.find(x=>x.id===taskId);
+  if(!t)return;
+  if(subId){
+    let s=(t.subtasks||[]).find(x=>x.id===subId);
+    if(!s)return;
+    displayName=s.name+' (↳ '+t.name+')';
+    dragTaskId='sub:'+taskId+':'+subId;
+  } else {
+    displayName=t.name;
+    dragTaskId=taskId;
+  }
+  e.dataTransfer.setData('text/plain',dragTaskId);
+  let g=$('#dragGhost');g.textContent=displayName;g.style.display='block';
+  const mv=ev=>{g.style.left=ev.clientX+10+'px';g.style.top=ev.clientY+10+'px'};document.addEventListener('mousemove',mv);
+  const up=()=>{g.style.display='none';document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);$$('.drop-target').forEach(el=>el.classList.remove('drop-target'));dragTaskId=null};document.addEventListener('mouseup',up);
+}
+function _parseDragPayload(payload){
+  if(!payload)return null;
+  if(payload.startsWith('sub:')){
+    const parts=payload.split(':');
+    if(parts.length<3)return null;
+    return{kind:'sub',taskId:parts[1],subId:parts[2]};
+  }
+  return{kind:'task',taskId:payload};
+}
+function onDropMonth(e,ds){
+  e.preventDefault();
+  let payload=e.dataTransfer.getData('text/plain')||dragTaskId;
+  let parsed=_parseDragPayload(payload);
+  if(!parsed)return;
+  if(parsed.kind==='sub'){
+    let t=S.tasks.find(x=>x.id===parsed.taskId);if(!t)return;
+    let s=(t.subtasks||[]).find(x=>x.id===parsed.subId);if(!s)return;
+    let time=subTime(s);
+    s.scheduledDate=time?ds+'T'+time:ds;
+    save();renderAll();toast('Session rescheduled');
+  } else {
+    let t=S.tasks.find(x=>x.id===parsed.taskId);
+    if(t){let time=taskTime(t);t.scheduledDate=time?ds+'T'+time:ds;save();renderAll();toast('Task rescheduled')}
+  }
+}
+function onDropWeek(e,ds,hr){
+  e.preventDefault();
+  let payload=e.dataTransfer.getData('text/plain')||dragTaskId;
+  let parsed=_parseDragPayload(payload);
+  if(!parsed)return;
+  let timeStr=String(hr).padStart(2,'0')+':00';
+  if(parsed.kind==='sub'){
+    let t=S.tasks.find(x=>x.id===parsed.taskId);if(!t)return;
+    let s=(t.subtasks||[]).find(x=>x.id===parsed.subId);if(!s)return;
+    s.scheduledDate=ds+'T'+timeStr;
+    save();renderAll();toast('Session rescheduled');
+  } else {
+    let t=S.tasks.find(x=>x.id===parsed.taskId);
+    if(t){t.scheduledDate=ds+'T'+timeStr;save();renderAll();toast('Task rescheduled')}
+  }
+}
 
 // ===== TOAST =====
 let toastTm=null;function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show');if(toastTm)clearTimeout(toastTm);toastTm=setTimeout(()=>el.classList.remove('show'),2800)}
